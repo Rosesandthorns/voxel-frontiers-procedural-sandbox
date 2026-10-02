@@ -1,0 +1,10 @@
+{
+  "version": "0.0.1-pre",
+  "updateName": "DevTest",
+  "updateFeatures": [
+    "Placeholder feature 1",
+    "Placeholder feature 2",
+    "Placeholder feature 3"
+  ],
+  "updateSize": "1.20mb"
+}

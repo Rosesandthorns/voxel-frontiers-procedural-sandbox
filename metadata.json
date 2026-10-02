@@ -1,0 +1,6 @@
+{
+  "name": "Voxel Frontiers: Procedural Sandbox",
+  "description": "An open world infinite procedural voxel sandbox game featuring diverse biomes, exploration relics, deep caves, and tons of interactive entities with unique mechanics.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
