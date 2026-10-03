@@ -1295,8 +1295,41 @@ export const BLOCK_DEFS: Record<BlockType, BlockDef> = {
     hardness: 0.3,
     color: '#ffffff',
     soundType: 'snow'
+  },
+  [BlockType.FARMLAND]: {
+    id: BlockType.FARMLAND,
+    name: 'Farmland',
+    solid: true,
+    transparent: false,
+    hardness: 0.6,
+    color: '#5c4033',
+    soundType: 'earth'
+  },
+  [BlockType.SAND_FARMLAND]: {
+    id: BlockType.SAND_FARMLAND,
+    name: 'Sand Farmland',
+    solid: true,
+    transparent: false,
+    hardness: 0.5,
+    color: '#d2b48c',
+    soundType: 'sand'
   }
 };
+
+export function isShrubBlock(type: BlockType): boolean {
+  return (
+    type === BlockType.VERDANT_SHRUB ||
+    type === BlockType.WITHERED_SHRUB ||
+    type === BlockType.ARCTIC_FRUIT ||
+    type === BlockType.ASHEN_BRUSH ||
+    type === BlockType.BERRY_BUSH ||
+    type === BlockType.THORN_BUSH ||
+    type === BlockType.GOLDEN_BLOOM_BUSH ||
+    type === BlockType.ROSEBUSH ||
+    type === BlockType.SICKLY_BRIAR ||
+    type === BlockType.LIANA_BUSH
+  );
+}
 
 export function isPlankBlock(type: BlockType): boolean {
   return (

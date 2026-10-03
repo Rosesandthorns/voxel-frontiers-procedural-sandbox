@@ -2955,6 +2955,144 @@ export function generateForgeSide32(): Uint8ClampedArray {
   return buf;
 }
 
+export function generateFarmlandTop32(): Uint8ClampedArray {
+  const buf = new Uint8ClampedArray(32 * 32 * 4);
+  for (let y = 0; y < 32; y++) {
+    const inRow = y % 4;
+    for (let x = 0; x < 32; x++) {
+      let r = 80;
+      let g = 54;
+      let b = 38;
 
+      if (inRow === 0) {
+        // Dark, moist furrow trough
+        r = 54;
+        g = 36;
+        b = 25;
+      } else if (inRow === 1) {
+        // Tilled crest highlight catching sunlight
+        r = 98;
+        g = 66;
+        b = 47;
+      } else if (inRow === 2) {
+        // Loam furrow ridge
+        r = 82;
+        g = 55;
+        b = 39;
+      } else {
+        // Furrow lower slope
+        r = 70;
+        g = 47;
+        b = 33;
+      }
 
+      // Rich crumbly soil organic grain and texture
+      const grain = (smoothNoise(x * 1.5, y * 1.5, 5, 237) - 0.5) * 18 + (hash(x, y, 79) - 0.5) * 14;
+      // Subtle occasional mineral specks in earth
+      const speck = hash(x, y, 311) > 0.94 ? 12 : 0;
+
+      const finalR = Math.max(0, Math.min(255, Math.round(r + grain + speck)));
+      const finalG = Math.max(0, Math.min(255, Math.round(g + grain * 0.75 + speck * 0.8)));
+      const finalB = Math.max(0, Math.min(255, Math.round(b + grain * 0.55 + speck * 0.6)));
+
+      setPx(buf, x, y, finalR, finalG, finalB, 255);
+    }
+  }
+  return buf;
+}
+
+export function generateFarmlandSide32(dirtSidePixels: Uint8ClampedArray): Uint8ClampedArray {
+  const buf = new Uint8ClampedArray(32 * 32 * 4);
+  buf.set(dirtSidePixels);
+
+  // Overlay tilled soil furrow rim on top 2 pixel rows of the block face
+  for (let y = 0; y < 2; y++) {
+    for (let x = 0; x < 32; x++) {
+      const grain = (hash(x, y, 149) - 0.5) * 10;
+      if (y === 0) {
+        // Top furrow crest rim
+        setPx(buf, x, y, Math.round(62 + grain), Math.round(42 + grain * 0.7), Math.round(29 + grain * 0.5), 255);
+      } else if (y === 1) {
+        // Transitional furrow shadow into natural dirt
+        const idx = (y * 32 + x) * 4;
+        const curR = buf[idx];
+        const curG = buf[idx + 1];
+        const curB = buf[idx + 2];
+        setPx(buf, x, y, Math.round(curR * 0.82), Math.round(curG * 0.82), Math.round(curB * 0.82), 255);
+      }
+    }
+  }
+  return buf;
+}
+
+export function generateSandFarmlandTop32(): Uint8ClampedArray {
+  const buf = new Uint8ClampedArray(32 * 32 * 4);
+  for (let y = 0; y < 32; y++) {
+    const inRow = y % 4;
+    for (let x = 0; x < 32; x++) {
+      let r = 212;
+      let g = 176;
+      let b = 118;
+
+      if (inRow === 0) {
+        // Moist shadow in tilled sand furrow trench
+        r = 162;
+        g = 120;
+        b = 76;
+      } else if (inRow === 1) {
+        // Bright sunlit sand ridge crest
+        r = 236;
+        g = 206;
+        b = 148;
+      } else if (inRow === 2) {
+        // Golden tilled sand loam
+        r = 212;
+        g = 176;
+        b = 118;
+      } else {
+        // Gentle dune furrow slope
+        r = 186;
+        g = 146;
+        b = 96;
+      }
+
+      // Micro-ripples across sandy furrows
+      const ripple = Math.sin(x * 0.35 + smoothNoise(x, y, 6, 42) * 2.5) * 6;
+      const grain = (smoothNoise(x * 1.5, y * 1.5, 4, 317) - 0.5) * 16 + (hash(x, y, 113) - 0.5) * 14;
+      // Fine crystalline quartz sand glistening in sunlight
+      const crystalSpeck = hash(x, y, 701) > 0.92 ? 14 : 0;
+
+      const finalR = Math.max(0, Math.min(255, Math.round(r + ripple + grain + crystalSpeck)));
+      const finalG = Math.max(0, Math.min(255, Math.round(g + ripple * 0.85 + grain * 0.8 + crystalSpeck * 0.9)));
+      const finalB = Math.max(0, Math.min(255, Math.round(b + ripple * 0.65 + grain * 0.6 + crystalSpeck * 0.7)));
+
+      setPx(buf, x, y, finalR, finalG, finalB, 255);
+    }
+  }
+  return buf;
+}
+
+export function generateSandFarmlandSide32(sandBuf: Uint8ClampedArray): Uint8ClampedArray {
+  const buf = new Uint8ClampedArray(32 * 32 * 4);
+  buf.set(sandBuf);
+
+  // Overlay tilled sand furrow rim on top 2 pixel rows of the block face
+  for (let y = 0; y < 2; y++) {
+    for (let x = 0; x < 32; x++) {
+      const grain = (hash(x, y, 227) - 0.5) * 10;
+      if (y === 0) {
+        // Tilled sand furrow crest rim
+        setPx(buf, x, y, Math.round(176 + grain), Math.round(136 + grain * 0.8), Math.round(88 + grain * 0.6), 255);
+      } else if (y === 1) {
+        // Transitional furrow shadow into natural dune sand
+        const idx = (y * 32 + x) * 4;
+        const curR = buf[idx];
+        const curG = buf[idx + 1];
+        const curB = buf[idx + 2];
+        setPx(buf, x, y, Math.round(curR * 0.86), Math.round(curG * 0.86), Math.round(curB * 0.86), 255);
+      }
+    }
+  }
+  return buf;
+}
 

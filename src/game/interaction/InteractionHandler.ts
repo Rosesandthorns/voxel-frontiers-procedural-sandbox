@@ -9,7 +9,7 @@ import { ExplorationSystem } from '../systems/ExplorationSystem';
 import { getItemForBlock, ITEM_REGISTRY } from '../systems/ItemRegistry';
 import { DroppedItemManager } from '../entities/DroppedItemManager';
 import { breakDependentBlocks } from '../voxel/DependentBlockSystem';
-import { BLOCK_DEFS, isFlintBlock, isLeavesBlock, isLogBlock, isPlantBlock, isPlankBlock, isStoneOrOre, isWaterBlock } from '../voxel/Blocks';
+import { BLOCK_DEFS, isFlintBlock, isLeavesBlock, isLogBlock, isPlantBlock, isPlankBlock, isShrubBlock, isStoneOrOre, isWaterBlock } from '../voxel/Blocks';
 import { VoxelWorld } from '../voxel/VoxelWorld';
 import { getMinedBlockReplacement } from '../voxel/WaterFlora';
 
@@ -273,6 +273,111 @@ export class InteractionHandler {
               this.callbacks.onOpenInventory();
             }
             return;
+          }
+
+          // Right-click ground with a Hoe: Till the ground into Farmland / Sand Farmland!
+          const isHoe = activeItem && (activeItem.toolType === 'hoe' || activeItem.id.endsWith('_hoe'));
+          if (isHoe) {
+            // Shrubs must never be tilled or removed when right clicking with a hoe
+            if (isShrubBlock(block)) {
+              return;
+            }
+
+            let targetX = x;
+            let targetY = y;
+            let targetZ = z;
+            let targetBlock = block;
+
+            // If player targeted a non-shrub plant or top snow resting on ground, check the ground beneath it
+            if (isPlantBlock(block) || (block >= BlockType.TOPSNOW_1 && block <= BlockType.TOPSNOW_5)) {
+              const below = world.getBlock(x, y - 1, z);
+              if (isShrubBlock(below)) {
+                return;
+              }
+              if (
+                below === BlockType.GRASS ||
+                below === BlockType.DIRT ||
+                below === BlockType.MYCELIUM ||
+                below === BlockType.AETHER_GRASS ||
+                below === BlockType.SAND
+              ) {
+                targetY = y - 1;
+                targetBlock = below;
+              }
+            }
+
+            const isSoilTillable =
+              targetBlock === BlockType.GRASS ||
+              targetBlock === BlockType.DIRT ||
+              targetBlock === BlockType.MYCELIUM ||
+              targetBlock === BlockType.AETHER_GRASS;
+
+            const isSandTillable = targetBlock === BlockType.SAND;
+
+            if (isSoilTillable || isSandTillable) {
+              const above = world.getBlock(targetX, targetY + 1, targetZ);
+              // Shrubs resting on top must never be tilled or removed
+              if (isShrubBlock(above)) {
+                return;
+              }
+
+              const defAbove = BLOCK_DEFS[above];
+
+              // Cannot till if obstructed by a solid block overhead
+              if (!defAbove?.solid) {
+                // If there is a non-shrub plant or top snow on top of the ground, clear it and drop it
+                if (isPlantBlock(above) || (above >= BlockType.TOPSNOW_1 && above <= BlockType.TOPSNOW_5)) {
+                  world.setBlock(targetX, targetY + 1, targetZ, BlockType.AIR);
+                  const plantDrop = getItemForBlock(above);
+                  if (plantDrop) {
+                    const droppedItemManager = this.callbacks.getDroppedItemManager?.();
+                    if (droppedItemManager) {
+                      droppedItemManager.spawnItem(plantDrop, targetX + 0.5, targetY + 1.2, targetZ + 0.5);
+                    } else {
+                      this.addItemToPlayer(plantDrop, 1);
+                    }
+                  }
+                  soundManager.playStep('foliage');
+                }
+
+                if (isSandTillable) {
+                  // Till sand into unique Sand Farmland!
+                  world.setBlock(targetX, targetY, targetZ, BlockType.SAND_FARMLAND);
+                  soundManager.playStep('sand');
+                  soundManager.playDigChip('sand');
+                  entityManager.addParticle(targetX + 0.5, targetY + 1.05, targetZ + 0.5, 0xd2b48c, 10, 0.4);
+                } else {
+                  // Till soil into Farmland!
+                  world.setBlock(targetX, targetY, targetZ, BlockType.FARMLAND);
+                  soundManager.playStep('earth');
+                  soundManager.playDigChip('earth');
+                  entityManager.addParticle(targetX + 0.5, targetY + 1.05, targetZ + 0.5, 0x5c4033, 10, 0.4);
+                }
+                explorationSystem.stats.blocksPlaced++;
+
+                // Apply 1 tool durability damage to the hoe
+                if (activeItem.durability !== undefined) {
+                  const currentHotbar = this.callbacks.getHotbar();
+                  const updatedHotbar = currentHotbar.map((s) => ({ ...s }));
+                  const curSlot = updatedHotbar[selectedIndex];
+                  if (curSlot && curSlot.item) {
+                    const currentDurability = (curSlot.item.durability ?? activeItem.durability) - 1;
+                    if (currentDurability <= 0) {
+                      soundManager.playBlockBreak();
+                      curSlot.item = null;
+                      curSlot.count = 0;
+                    } else {
+                      curSlot.item = {
+                        ...curSlot.item,
+                        durability: currentDurability
+                      };
+                    }
+                    this.callbacks.onUpdateHotbar(updatedHotbar);
+                  }
+                }
+                return;
+              }
+            }
           }
 
           // Placing Flint: can only be placed on a solid block with player collision
@@ -560,11 +665,13 @@ export class InteractionHandler {
       } else if (
         block === BlockType.GRASS ||
         block === BlockType.DIRT ||
+        block === BlockType.FARMLAND ||
+        block === BlockType.SAND_FARMLAND ||
         block === BlockType.SAND ||
         block === BlockType.SNOW ||
         block === BlockType.BEACH_GRAVEL
       ) {
-        if (tType === 'shovel') {
+        if (tType === 'shovel' || (tType === 'hoe' && (block === BlockType.FARMLAND || block === BlockType.SAND_FARMLAND || block === BlockType.GRASS || block === BlockType.DIRT || block === BlockType.SAND))) {
           toolEfficiency = speed * 1.5;
         } else {
           toolEfficiency = 1.0;
@@ -862,6 +969,10 @@ export class InteractionHandler {
             itemToGive = ITEM_REGISTRY['flint'] || getItemForBlock(block);
           } else if (block === BlockType.BEACH_GRAVEL) {
             itemToGive = ITEM_REGISTRY['flint'] || getItemForBlock(block);
+          } else if (block === BlockType.FARMLAND) {
+            itemToGive = ITEM_REGISTRY['dirt'] || getItemForBlock(BlockType.DIRT);
+          } else if (block === BlockType.SAND_FARMLAND) {
+            itemToGive = ITEM_REGISTRY['sand'] || getItemForBlock(BlockType.SAND);
           } else if (block === BlockType.CHALK) {
             // breaking chalk drops chalk, with 25% chance to drop flint instead
             if (Math.random() < 0.25) {

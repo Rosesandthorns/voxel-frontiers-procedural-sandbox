@@ -20,7 +20,8 @@ import {
   SMELT_DURATION_SECONDS,
   FurnaceSmeltRecipe,
   FORGE_RECIPES,
-  isMoldItem
+  isMoldItem,
+  isPlankItemId
 } from '../game/systems/ItemRegistry';
 import { BlockType, InventorySlot, ItemDef } from '../types';
 import { isPlankBlock, isLogBlock } from '../game/voxel/Blocks';
@@ -138,9 +139,9 @@ const STONE_HEAD_TEMPLATES: Array<{
       '................',
       '....#########...',
       '....#########...',
-      '....###.........',
-      '....###.........',
-      '....###.........',
+      '..........###...',
+      '..........###...',
+      '..........###...',
       '................',
       '................',
       '................',
@@ -320,6 +321,7 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
   const isPlank = (item: ItemDef | null | undefined): boolean => {
     if (!item) return false;
     return (
+      isPlankItemId(item.id) ||
       item.id.endsWith('_plank') ||
       item.id.endsWith('_planks') ||
       (item.blockId !== undefined && isPlankBlock(item.blockId))
@@ -354,7 +356,7 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
       if (!slot.item) continue;
 
       if (itemId === 'any_plank') {
-        if (isPlank(slot.item) || isWoodLog(slot.item)) count += slot.count;
+        if (isPlank(slot.item)) count += slot.count;
       } else if (itemId === 'any_wood') {
         if (isWoodLog(slot.item)) count += slot.count;
       } else if (itemId === 'any_stone') {
@@ -476,7 +478,7 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
       if (slot.item && slot.count > 0) {
         const c = slot.count;
         totalItems += c;
-        if (isPlank(slot.item) || isWoodLog(slot.item)) {
+        if (isPlank(slot.item)) {
           presentItems['any_plank'] = (presentItems['any_plank'] || 0) + c;
         }
         if (isWoodLog(slot.item)) {
@@ -526,7 +528,7 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
       const allGridItemsValid = gridSlots.every((slot) => {
         if (!slot.item || slot.count <= 0) return true;
         return r.ingredients.some((ing) => {
-          if (ing.itemId === 'any_plank') return isPlank(slot.item) || isWoodLog(slot.item);
+          if (ing.itemId === 'any_plank') return isPlank(slot.item);
           if (ing.itemId === 'any_wood') return isWoodLog(slot.item);
           if (ing.itemId === 'any_stone') return isStone(slot.item);
           return ing.itemId === slot.item!.id;
@@ -578,7 +580,7 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
         if (!slot.item || slot.count <= 0 || needed <= 0) continue;
 
         let match = false;
-        if (ing.itemId === 'any_plank') match = isPlank(slot.item) || isWoodLog(slot.item);
+        if (ing.itemId === 'any_plank') match = isPlank(slot.item);
         else if (ing.itemId === 'any_wood') match = isWoodLog(slot.item);
         else if (ing.itemId === 'any_stone') match = isStone(slot.item);
         else match = slot.item.id === ing.itemId;
@@ -624,7 +626,7 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
       let c = 0;
       for (const slot of [...newHotbar, ...newInventory]) {
         if (!slot.item) continue;
-        if (itemId === 'any_plank' && (isPlank(slot.item) || isWoodLog(slot.item))) c += slot.count;
+        if (itemId === 'any_plank' && isPlank(slot.item)) c += slot.count;
         else if (itemId === 'any_wood' && isWoodLog(slot.item)) c += slot.count;
         else if (itemId === 'any_stone' && isStone(slot.item)) c += slot.count;
         else if (slot.item.id === itemId) c += slot.count;
@@ -649,7 +651,7 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
       const stoneIndices = [6, 7];
       for (const idx of plankIndices) {
         for (const slot of [...newHotbar, ...newInventory]) {
-          if (slot.item && (isPlank(slot.item) || isWoodLog(slot.item))) {
+          if (slot.item && isPlank(slot.item)) {
             newGrid[idx] = { item: slot.item, count: 1 };
             slot.count--;
             if (slot.count <= 0) {
@@ -708,7 +710,7 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
           for (const slot of [...newHotbar, ...newInventory]) {
             if (!slot.item) continue;
             let match = false;
-            if (ing.itemId === 'any_plank') match = isPlank(slot.item) || isWoodLog(slot.item);
+            if (ing.itemId === 'any_plank') match = isPlank(slot.item);
             else if (ing.itemId === 'any_wood') match = isWoodLog(slot.item);
             else if (ing.itemId === 'any_stone') match = isStone(slot.item);
             else match = slot.item.id === ing.itemId;
@@ -755,7 +757,7 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
       for (const slot of [...newHotbar, ...newInventory]) {
         if (!slot.item || needed <= 0) continue;
         let match = false;
-        if (ing.itemId === 'any_plank') match = isPlank(slot.item) || isWoodLog(slot.item);
+        if (ing.itemId === 'any_plank') match = isPlank(slot.item);
         else if (ing.itemId === 'any_wood') match = isWoodLog(slot.item);
         else if (ing.itemId === 'any_stone') match = isStone(slot.item);
         else match = slot.item.id === ing.itemId;

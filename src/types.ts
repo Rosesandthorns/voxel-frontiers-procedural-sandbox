@@ -141,7 +141,9 @@ export enum BlockType {
   TOPSNOW_3 = 130,
   TOPSNOW_4 = 131,
   TOPSNOW_5 = 132,
-  FORGE = 133
+  FORGE = 133,
+  FARMLAND = 134,
+  SAND_FARMLAND = 135
 }
 
 export enum Season {

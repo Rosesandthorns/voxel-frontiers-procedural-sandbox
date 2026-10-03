@@ -49,7 +49,11 @@ import {
   generateLimestone32,
   generateBlackRock32,
   generateChalk32,
-  generateBeachGravel32
+  generateBeachGravel32,
+  generateFarmlandTop32,
+  generateFarmlandSide32,
+  generateSandFarmlandTop32,
+  generateSandFarmlandSide32
 } from './TextureGenerators32';
 
 export type RegisterBlock32Fn = (
@@ -551,4 +555,14 @@ export function registerAllRemainingBlocks32(
   // Beach gravel block
   const beachGravelBuf = generateBeachGravel32();
   registerBlock32(BlockType.BEACH_GRAVEL, beachGravelBuf, beachGravelBuf);
+
+  // Farmland (tilled soil)
+  const farmlandTop = generateFarmlandTop32();
+  const farmlandSide = generateFarmlandSide32(customDirtSide);
+  registerBlock32(BlockType.FARMLAND, farmlandTop, farmlandSide, customDirtSide);
+
+  // Sand Farmland (tilled sand with unique furrowed sand texture)
+  const sandFarmlandTop = generateSandFarmlandTop32();
+  const sandFarmlandSide = generateSandFarmlandSide32(sand);
+  registerBlock32(BlockType.SAND_FARMLAND, sandFarmlandTop, sandFarmlandSide, sand);
 }

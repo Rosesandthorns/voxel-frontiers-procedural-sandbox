@@ -136,6 +136,24 @@ export const ITEM_REGISTRY: Record<string, ItemDef> = {
     description: 'Rich fertile earth.',
     maxStack: 64
   },
+  farmland: {
+    id: 'farmland',
+    name: 'Farmland',
+    type: 'block',
+    blockId: BlockType.FARMLAND,
+    icon: '',
+    description: 'Tilled agricultural soil ready for crops and farming.',
+    maxStack: 64
+  },
+  sand_farmland: {
+    id: 'sand_farmland',
+    name: 'Sand Farmland',
+    type: 'block',
+    blockId: BlockType.SAND_FARMLAND,
+    icon: '',
+    description: 'Tilled arid sand soil ready for desert agriculture.',
+    maxStack: 64
+  },
   stone: {
     id: 'stone',
     name: 'Stone',
@@ -1035,9 +1053,7 @@ export const ITEM_REGISTRY: Record<string, ItemDef> = {
     toolType: 'hoe',
     tier: 1,
     speed: 2.0,
-    icon: `data:image/svg+xml;utf8,${encodeURIComponent(
-      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" shape-rendering="crispEdges"><rect x="9" y="3" width="5" height="2" fill="#a16207"/><rect x="12" y="5" width="2" height="3" fill="#a16207"/><rect x="13" y="4" width="1" height="1" fill="#ca8a04"/><rect x="3" y="12" width="2" height="2" fill="#78350f"/><rect x="5" y="10" width="2" height="2" fill="#78350f"/><rect x="7" y="8" width="2" height="2" fill="#92400e"/><rect x="9" y="6" width="2" height="2" fill="#92400e"/><rect x="10" y="5" width="1" height="1" fill="#78350f"/></svg>'
-    )}`,
+    icon: '/ItemSprites/WoodenHoe.png',
     description: 'Handmade wooden farming hoe. Rapidly clears grass, soil, and crops.',
     maxStack: 1,
     durability: 120
@@ -1049,9 +1065,7 @@ export const ITEM_REGISTRY: Record<string, ItemDef> = {
     toolType: 'hoe',
     tier: 2,
     speed: 3.5,
-    icon: `data:image/svg+xml;utf8,${encodeURIComponent(
-      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" shape-rendering="crispEdges"><rect x="9" y="3" width="5" height="2" fill="#64748b"/><rect x="12" y="5" width="2" height="3" fill="#64748b"/><rect x="13" y="4" width="1" height="1" fill="#94a3b8"/><rect x="3" y="12" width="2" height="2" fill="#78350f"/><rect x="5" y="10" width="2" height="2" fill="#78350f"/><rect x="7" y="8" width="2" height="2" fill="#92400e"/><rect x="9" y="6" width="2" height="2" fill="#92400e"/><rect x="10" y="5" width="1" height="1" fill="#78350f"/></svg>'
-    )}`,
+    icon: '/ItemSprites/StoneHoe.png',
     description: 'Sturdy chipped stone farming hoe.',
     maxStack: 1,
     durability: 250
@@ -1063,9 +1077,7 @@ export const ITEM_REGISTRY: Record<string, ItemDef> = {
     toolType: 'hoe',
     tier: 3,
     speed: 4.8,
-    icon: `data:image/svg+xml;utf8,${encodeURIComponent(
-      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" shape-rendering="crispEdges"><rect x="9" y="3" width="5" height="2" fill="#94a3b8"/><rect x="12" y="5" width="2" height="3" fill="#94a3b8"/><rect x="13" y="4" width="1" height="1" fill="#cbd5e1"/><rect x="3" y="12" width="2" height="2" fill="#78350f"/><rect x="5" y="10" width="2" height="2" fill="#78350f"/><rect x="7" y="8" width="2" height="2" fill="#92400e"/><rect x="9" y="6" width="2" height="2" fill="#92400e"/><rect x="10" y="5" width="1" height="1" fill="#78350f"/></svg>'
-    )}`,
+    icon: '/ItemSprites/TinHoe.png',
     description: 'Lightweight tin farming hoe for agile field tilling.',
     maxStack: 1,
     durability: 350
@@ -1077,9 +1089,7 @@ export const ITEM_REGISTRY: Record<string, ItemDef> = {
     toolType: 'hoe',
     tier: 4,
     speed: 6.5,
-    icon: `data:image/svg+xml;utf8,${encodeURIComponent(
-      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" shape-rendering="crispEdges"><rect x="9" y="3" width="5" height="2" fill="#cbd5e1"/><rect x="12" y="5" width="2" height="3" fill="#cbd5e1"/><rect x="13" y="4" width="1" height="1" fill="#ffffff"/><rect x="3" y="12" width="2" height="2" fill="#78350f"/><rect x="5" y="10" width="2" height="2" fill="#78350f"/><rect x="7" y="8" width="2" height="2" fill="#92400e"/><rect x="9" y="6" width="2" height="2" fill="#92400e"/><rect x="10" y="5" width="1" height="1" fill="#78350f"/></svg>'
-    )}`,
+    icon: '/ItemSprites/IronHoe.png',
     description: 'Forged iron farming hoe with excellent cutting power.',
     maxStack: 1,
     durability: 700
@@ -1091,9 +1101,7 @@ export const ITEM_REGISTRY: Record<string, ItemDef> = {
     toolType: 'hoe',
     tier: 5,
     speed: 8.5,
-    icon: `data:image/svg+xml;utf8,${encodeURIComponent(
-      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" shape-rendering="crispEdges"><rect x="9" y="3" width="5" height="2" fill="#facc15"/><rect x="12" y="5" width="2" height="3" fill="#facc15"/><rect x="13" y="4" width="1" height="1" fill="#fef08a"/><rect x="3" y="12" width="2" height="2" fill="#78350f"/><rect x="5" y="10" width="2" height="2" fill="#78350f"/><rect x="7" y="8" width="2" height="2" fill="#92400e"/><rect x="9" y="6" width="2" height="2" fill="#92400e"/><rect x="10" y="5" width="1" height="1" fill="#78350f"/></svg>'
-    )}`,
+    icon: '/ItemSprites/GoldHoe.png',
     description: 'Gilded farming hoe with lightning-fast crop harvesting action.',
     maxStack: 1,
     durability: 550
@@ -1105,9 +1113,7 @@ export const ITEM_REGISTRY: Record<string, ItemDef> = {
     toolType: 'hoe',
     tier: 5,
     speed: 7.5,
-    icon: `data:image/svg+xml;utf8,${encodeURIComponent(
-      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" shape-rendering="crispEdges"><rect x="9" y="3" width="5" height="2" fill="#38bdf8"/><rect x="12" y="5" width="2" height="3" fill="#38bdf8"/><rect x="13" y="4" width="1" height="1" fill="#e0f2fe"/><rect x="3" y="12" width="2" height="2" fill="#78350f"/><rect x="5" y="10" width="2" height="2" fill="#78350f"/><rect x="7" y="8" width="2" height="2" fill="#92400e"/><rect x="9" y="6" width="2" height="2" fill="#92400e"/><rect x="10" y="5" width="1" height="1" fill="#78350f"/></svg>'
-    )}`,
+    icon: '/ItemSprites/IceHoe.png',
     description: 'Glacial farming hoe carved from packed mountain ice.',
     maxStack: 1,
     durability: 650
@@ -1119,9 +1125,7 @@ export const ITEM_REGISTRY: Record<string, ItemDef> = {
     toolType: 'hoe',
     tier: 6,
     speed: 11.0,
-    icon: `data:image/svg+xml;utf8,${encodeURIComponent(
-      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" shape-rendering="crispEdges"><rect x="9" y="3" width="5" height="2" fill="#ec4899"/><rect x="12" y="5" width="2" height="3" fill="#f43f5e"/><rect x="13" y="4" width="1" height="1" fill="#fbcfe8"/><rect x="3" y="12" width="2" height="2" fill="#0284c7"/><rect x="5" y="10" width="2" height="2" fill="#0284c7"/><rect x="7" y="8" width="2" height="2" fill="#38bdf8"/><rect x="9" y="6" width="2" height="2" fill="#38bdf8"/><rect x="10" y="5" width="1" height="1" fill="#0284c7"/></svg>'
-    )}`,
+    icon: '/ItemSprites/CrystalizedCoralHoe.png',
     description: 'Iridescent oceanic hoe infused with coral crystal.',
     maxStack: 1,
     durability: 1400
@@ -1133,9 +1137,7 @@ export const ITEM_REGISTRY: Record<string, ItemDef> = {
     toolType: 'hoe',
     tier: 7,
     speed: 15.0,
-    icon: `data:image/svg+xml;utf8,${encodeURIComponent(
-      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" shape-rendering="crispEdges"><rect x="9" y="3" width="5" height="2" fill="#7c3aed"/><rect x="12" y="5" width="2" height="3" fill="#18181b"/><rect x="13" y="4" width="1" height="1" fill="#c084fc"/><rect x="3" y="12" width="2" height="2" fill="#374151"/><rect x="5" y="10" width="2" height="2" fill="#374151"/><rect x="7" y="8" width="2" height="2" fill="#4b5563"/><rect x="9" y="6" width="2" height="2" fill="#4b5563"/><rect x="10" y="5" width="1" height="1" fill="#1f2937"/></svg>'
-    )}`,
+    icon: '/ItemSprites/AbbysalHoe.png',
     description: 'Volcanic obsidian scythe-hoe that clears entire swathes of flora in the blink of an eye.',
     maxStack: 1,
     durability: 2800
@@ -1249,9 +1251,7 @@ export const ITEM_REGISTRY: Record<string, ItemDef> = {
     id: 'ice_hoe_head',
     name: 'Ice Hoe Head',
     type: 'utility',
-    icon: `data:image/svg+xml;utf8,${encodeURIComponent(
-      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" shape-rendering="crispEdges"><rect x="4" y="4" width="8" height="3" fill="#38bdf8"/><rect x="10" y="7" width="3" height="5" fill="#38bdf8"/><rect x="5" y="5" width="6" height="1" fill="#e0f2fe"/><rect x="11" y="8" width="1" height="3" fill="#0284c7"/></svg>'
-    )}`,
+    icon: '/ItemSprites/IceHoeHead.png',
     description: 'Glacial ice hoe blade carved from ice. Assemble with a wooden plank in the 3x3 grid.',
     maxStack: 16
   },
@@ -1307,9 +1307,7 @@ export const ITEM_REGISTRY: Record<string, ItemDef> = {
     id: 'stone_hoe_head',
     name: 'Stone Hoe Head',
     type: 'utility',
-    icon: `data:image/svg+xml;utf8,${encodeURIComponent(
-      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" shape-rendering="crispEdges"><rect x="4" y="4" width="8" height="3" fill="#64748b"/><rect x="10" y="7" width="3" height="5" fill="#64748b"/><rect x="5" y="5" width="6" height="1" fill="#94a3b8"/><rect x="11" y="8" width="1" height="3" fill="#475569"/></svg>'
-    )}`,
+    icon: '/ItemSprites/StoneHoeHead.png',
     description: 'Chipped stone hoe blade knapped from rock or shaped at the Forge. Assemble with a wooden plank in the 3x3 grid.',
     maxStack: 16
   },
@@ -1317,9 +1315,7 @@ export const ITEM_REGISTRY: Record<string, ItemDef> = {
     id: 'tin_hoe_head',
     name: 'Tin Hoe Head',
     type: 'utility',
-    icon: `data:image/svg+xml;utf8,${encodeURIComponent(
-      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" shape-rendering="crispEdges"><rect x="4" y="4" width="8" height="3" fill="#94a3b8"/><rect x="10" y="7" width="3" height="5" fill="#94a3b8"/><rect x="5" y="5" width="6" height="1" fill="#cbd5e1"/><rect x="11" y="8" width="1" height="3" fill="#64748b"/></svg>'
-    )}`,
+    icon: '/ItemSprites/TinHoeHead.png',
     description: 'Forged tin hoe blade worked on the anvil. Assemble with a wooden plank in the 3x3 grid.',
     maxStack: 16
   },
@@ -1327,9 +1323,7 @@ export const ITEM_REGISTRY: Record<string, ItemDef> = {
     id: 'iron_hoe_head',
     name: 'Iron Hoe Head',
     type: 'utility',
-    icon: `data:image/svg+xml;utf8,${encodeURIComponent(
-      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" shape-rendering="crispEdges"><rect x="4" y="4" width="8" height="3" fill="#cbd5e1"/><rect x="10" y="7" width="3" height="5" fill="#cbd5e1"/><rect x="5" y="5" width="6" height="1" fill="#ffffff"/><rect x="11" y="8" width="1" height="3" fill="#94a3b8"/></svg>'
-    )}`,
+    icon: '/ItemSprites/IronHoeHead.png',
     description: 'Forged iron hoe blade hammered on the anvil or cast at the Forge. Assemble with a wooden plank in the 3x3 grid.',
     maxStack: 16
   },
@@ -1337,9 +1331,7 @@ export const ITEM_REGISTRY: Record<string, ItemDef> = {
     id: 'gold_hoe_head',
     name: 'Gold Hoe Head',
     type: 'utility',
-    icon: `data:image/svg+xml;utf8,${encodeURIComponent(
-      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" shape-rendering="crispEdges"><rect x="4" y="4" width="8" height="3" fill="#facc15"/><rect x="10" y="7" width="3" height="5" fill="#facc15"/><rect x="5" y="5" width="6" height="1" fill="#fef08a"/><rect x="11" y="8" width="1" height="3" fill="#ca8a04"/></svg>'
-    )}`,
+    icon: '/ItemSprites/GoldHoeHead.png',
     description: 'Forged gold hoe blade crafted on the anvil or cast at the Forge. Assemble with a wooden plank in the 3x3 grid.',
     maxStack: 16
   },
@@ -1347,9 +1339,7 @@ export const ITEM_REGISTRY: Record<string, ItemDef> = {
     id: 'crystalized_coral_hoe_head',
     name: 'Crystal Coral Hoe Head',
     type: 'utility',
-    icon: `data:image/svg+xml;utf8,${encodeURIComponent(
-      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" shape-rendering="crispEdges"><rect x="4" y="4" width="8" height="3" fill="#ec4899"/><rect x="10" y="7" width="3" height="5" fill="#f43f5e"/><rect x="5" y="5" width="6" height="1" fill="#fbcfe8"/><rect x="11" y="8" width="1" height="3" fill="#be185d"/></svg>'
-    )}`,
+    icon: '/ItemSprites/CrystalizedCoralHoeHead.png',
     description: 'Living oceanic crystal hoe head. Assemble with a wooden plank in the 3x3 grid.',
     maxStack: 16
   },
@@ -1357,9 +1347,7 @@ export const ITEM_REGISTRY: Record<string, ItemDef> = {
     id: 'abbysal_hoe_head',
     name: 'Abyssal Hoe Head',
     type: 'utility',
-    icon: `data:image/svg+xml;utf8,${encodeURIComponent(
-      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" shape-rendering="crispEdges"><rect x="4" y="4" width="8" height="3" fill="#7c3aed"/><rect x="10" y="7" width="3" height="5" fill="#18181b"/><rect x="5" y="5" width="6" height="1" fill="#c084fc"/><rect x="11" y="8" width="1" height="3" fill="#4c1d95"/></svg>'
-    )}`,
+    icon: '/ItemSprites/AbbysalHoeHead.png',
     description: 'Razor-sharp volcanic obsidian hoe blade. Assemble with a wooden plank in the 3x3 grid.',
     maxStack: 16
   },
@@ -1417,6 +1405,12 @@ export function getItemIcon(item: ItemDef | null | undefined): string {
 export function getItemForBlock(block: BlockType): ItemDef {
   if (isFlintBlock(block)) {
     return ITEM_REGISTRY['flint'] || ITEM_REGISTRY['black_rock'];
+  }
+  if (block === BlockType.FARMLAND) {
+    return ITEM_REGISTRY['dirt'];
+  }
+  if (block === BlockType.SAND_FARMLAND) {
+    return ITEM_REGISTRY['sand'];
   }
   // Find registered item with matching blockId
   for (const item of Object.values(ITEM_REGISTRY)) {
