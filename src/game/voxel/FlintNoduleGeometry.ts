@@ -1,5 +1,5 @@
 import { BlockType } from '../../types';
-import { BLOCK_DEFS, isFlintBlock } from './Blocks';
+import { BLOCK_DEFS, isFlintBlock, isWaterBlock } from './Blocks';
 
 export type AddFlintQuadFn = (
   x0: number, y0: number, z0: number,
@@ -57,7 +57,7 @@ export function getFlintAttachmentDir(
 
   // 2. Fall back to any solid terrain neighbor
   const isSolid = (b: BlockType) => {
-    if (b === BlockType.AIR || b === BlockType.WATER || b === BlockType.LAVA || isFlintBlock(b)) return false;
+    if (b === BlockType.AIR || isWaterBlock(b) || b === BlockType.LAVA || isFlintBlock(b)) return false;
     const def = (BLOCK_DEFS as Record<number, { solid?: boolean }>)[b];
     return !!def?.solid;
   };

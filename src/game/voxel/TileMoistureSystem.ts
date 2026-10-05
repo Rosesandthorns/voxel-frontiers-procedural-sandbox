@@ -315,7 +315,8 @@ export class TileMoistureSystem {
       const newBase = this.calculateBaseWaterValue(tile.wx, tile.wy, tile.wz);
       if (newBase !== tile.baseVal) {
         tile.baseVal = newBase;
-        const targetVal = isRaining && tile.isExposed ? Math.min(13, tile.baseVal + 5) : tile.baseVal;
+        const isDesert = Boolean(this.world.generator?.isDesertAt(tile.wx, tile.wz));
+        const targetVal = isRaining && tile.isExposed && !isDesert ? Math.min(13, tile.baseVal + 5) : tile.baseVal;
         const currentVal = chunk.getWaterValue(tile.lx, tile.ly, tile.lz);
         if (currentVal !== targetVal) {
           this.queueTileTransition(tile.wx, tile.wy, tile.wz, targetVal);
@@ -404,7 +405,8 @@ export class TileMoistureSystem {
       if (chunk.surfaceMoistureTiles.size === 0) continue;
 
       for (const tile of chunk.surfaceMoistureTiles.values()) {
-        const targetVal = isRaining && tile.isExposed
+        const isDesert = Boolean(this.world.generator?.isDesertAt(tile.wx, tile.wz));
+        const targetVal = isRaining && tile.isExposed && !isDesert
           ? Math.min(13, tile.baseVal + 5)
           : tile.baseVal;
 
@@ -443,8 +445,9 @@ export class TileMoistureSystem {
     // 1. If player tilled soil or placed sand
     if (isMoistureSensitiveBlock(block)) {
       const isExposed = !isProtectedFromRain(this.world, wx, wy, wz);
+      const isDesert = Boolean(this.world.generator?.isDesertAt(wx, wz));
       const baseVal = this.calculateBaseWaterValue(wx, wy, wz);
-      const targetVal = isRaining && isExposed ? Math.min(13, baseVal + 5) : baseVal;
+      const targetVal = isRaining && isExposed && !isDesert ? Math.min(13, baseVal + 5) : baseVal;
 
       const tile: SurfaceMoistureTile = {
         lx, ly: wy, lz,

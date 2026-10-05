@@ -43,6 +43,20 @@ export class WeatherEffects {
   private cacheTimer: number = 0;
   private lastModifiedSize: number = 0;
 
+  // Precipitation classification constants
+  public static readonly PRECIP_NONE = 0;      // Desert: no rain, no snow
+  public static readonly PRECIP_SNOW_ONLY = 1; // Arctic / Snowy: only snow, never rain
+  public static readonly PRECIP_NORMAL = 2;    // Normal: rain or snow by season/weather
+
+  // Fast direct-mapped cache for column precipitation category (4096 columns)
+  private biomeCacheKeys: Int32Array = new Int32Array(4096).fill(0x7fffffff);
+  private biomeCacheVals: Int8Array = new Int8Array(4096);
+
+  // Active status per particle to prevent ghost particles in deserts and snowy biomes
+  private rainActive: Uint8Array;
+  private snowActive: Uint8Array;
+  private frameCount: number = 0;
+
   // Splash particle system on rain impact
   private splashCount: number = 300;
   private splashGeo: THREE.BufferGeometry;
@@ -89,25 +103,12 @@ export class WeatherEffects {
 
     // 1. Setup Rain System (Line streaks)
     this.rainGeo = new THREE.BufferGeometry();
-    this.rainPositions = new Float32Array(this.rainCount * 6); // 2 vertices per line streak
+    this.rainPositions = new Float32Array(this.rainCount * 6).fill(-9999); // 2 vertices per line streak
     this.rainVelocities = new Float32Array(this.rainCount);
+    this.rainActive = new Uint8Array(this.rainCount);
 
-    const rainDropLength = 0.9;
     for (let i = 0; i < this.rainCount; i++) {
-      const x = (Math.random() - 0.5) * 48;
-      const y = Math.random() * 32 - 4;
-      const z = (Math.random() - 0.5) * 48;
-      const v = 32 + Math.random() * 12;
-
-      this.rainPositions[i * 6] = x;
-      this.rainPositions[i * 6 + 1] = y;
-      this.rainPositions[i * 6 + 2] = z;
-
-      this.rainPositions[i * 6 + 3] = x + 0.12;
-      this.rainPositions[i * 6 + 4] = y - rainDropLength;
-      this.rainPositions[i * 6 + 5] = z + 0.08;
-
-      this.rainVelocities[i] = v;
+      this.rainVelocities[i] = 32 + Math.random() * 12;
     }
 
     this.rainGeo.setAttribute('position', new THREE.BufferAttribute(this.rainPositions, 3));
@@ -147,13 +148,8 @@ export class WeatherEffects {
     // 3. Setup Snow Particle System
     this.snowTexture = new THREE.CanvasTexture(this.createSnowflakeCanvas());
     this.snowGeo = new THREE.BufferGeometry();
-    this.snowPositions = new Float32Array(this.snowCount * 3);
-
-    for (let i = 0; i < this.snowCount; i++) {
-      this.snowPositions[i * 3] = (Math.random() - 0.5) * 52;
-      this.snowPositions[i * 3 + 1] = Math.random() * 32 - 4;
-      this.snowPositions[i * 3 + 2] = (Math.random() - 0.5) * 52;
-    }
+    this.snowPositions = new Float32Array(this.snowCount * 3).fill(-9999);
+    this.snowActive = new Uint8Array(this.snowCount);
 
     this.snowGeo.setAttribute('position', new THREE.BufferAttribute(this.snowPositions, 3));
     this.snowMat = new THREE.PointsMaterial({
@@ -260,6 +256,9 @@ export class WeatherEffects {
    * Spawns subtle splash droplets when rain strikes a solid block or water surface.
    */
   public spawnRainSplash(x: number, y: number, z: number, isHeavy: boolean) {
+    // Rain splash is NEVER spawned if y coordinate is invalid or underground/hidden
+    if (y < 0 || y > 256) return;
+
     const count = isHeavy ? 2 : 1;
     for (let c = 0; c < count; c++) {
       const idx = this.splashCursor;
@@ -276,6 +275,64 @@ export class WeatherEffects {
 
       this.splashLifespans[idx] = 0.12 + Math.random() * 0.08;
     }
+  }
+
+  /**
+   * Fast classification of precipitation for a given world column:
+   * - PRECIP_NONE (0): Deserts (NEVER rain, NEVER snow)
+   * - PRECIP_SNOW_ONLY (1): Arctic / Snowy biomes (ONLY snow, NEVER rain)
+   * - PRECIP_NORMAL (2): Temperate / Verdant / Ocean (rain when raining, snow when snowing)
+   */
+  public getColumnPrecipType(world: VoxelWorld | null, wx: number, wz: number): number {
+    if (!world || !world.generator) return WeatherEffects.PRECIP_NORMAL;
+
+    const ix = Math.floor(wx);
+    const iz = Math.floor(wz);
+
+    const cx = (ix & 63);
+    const cz = (iz & 63);
+    const cacheIdx = cx + (cz << 6);
+    const cacheKey = (ix << 16) ^ (iz & 0xffff);
+
+    if (this.biomeCacheKeys[cacheIdx] === cacheKey) {
+      return this.biomeCacheVals[cacheIdx];
+    }
+
+    const subBiome = world.generator.getSubBiomeAt(ix, iz);
+    let pType = WeatherEffects.PRECIP_NORMAL;
+
+    if (
+      world.generator.isDesertAt(ix, iz) ||
+      subBiome.isDesert ||
+      subBiome.category === 'desert' ||
+      subBiome.mainBiome === BiomeType.THE_DESERT ||
+      subBiome.id === 'desert_dunes' ||
+      subBiome.id === 'desert_oasis' ||
+      subBiome.id === 'cactus_badlands' ||
+      subBiome.id === 'arid_scrubland'
+    ) {
+      pType = WeatherEffects.PRECIP_NONE;
+    } else if (
+      subBiome.isArctic ||
+      subBiome.category === 'arctic' ||
+      subBiome.isEversnow ||
+      subBiome.mainBiome === BiomeType.ARCTIC ||
+      subBiome.mainBiome === BiomeType.BOREAL_PEAKS ||
+      subBiome.id === 'frozen_ocean' ||
+      subBiome.id === 'snowy_shoreline' ||
+      subBiome.id === 'everfrost_forest' ||
+      subBiome.id === 'frozen_tundra' ||
+      subBiome.id === 'frostbite_peaks' ||
+      subBiome.id === 'eversnow' ||
+      subBiome.id === 'eversnow_bluffs' ||
+      subBiome.surfaceBlock === BlockType.SNOW
+    ) {
+      pType = WeatherEffects.PRECIP_SNOW_ONLY;
+    }
+
+    this.biomeCacheKeys[cacheIdx] = cacheKey;
+    this.biomeCacheVals[cacheIdx] = pType;
+    return pType;
   }
 
   /**
@@ -367,11 +424,21 @@ export class WeatherEffects {
     lightningStrikePos: THREE.Vector3 | null,
     world: VoxelWorld | null = null
   ) {
+    this.frameCount++;
+
     // 1. Rain / Rainstorm / Thunderstorm updates
     const isRain =
       weather === WeatherType.RAIN ||
       weather === WeatherType.RAINSTORM ||
       weather === WeatherType.THUNDERSTORM;
+
+    const isSnowWeather =
+      weather === WeatherType.SNOWY ||
+      weather === WeatherType.SNOWSTORM ||
+      weather === WeatherType.EVERSNOW;
+
+    // Snow precipitation is active during winter snowstorms OR during rain inside snowy/arctic biomes
+    const isSnow = isSnowWeather || isRain;
 
     // Update active splash droplets
     if (this.splashPoints) {
@@ -397,8 +464,16 @@ export class WeatherEffects {
       }
     }
 
+    // Periodically flush caches (every ~1.5s or on block modification)
+    this.cacheTimer += delta;
+    if (this.cacheTimer >= 1.5 || (world && world.modifiedBlocks.size !== this.lastModifiedSize)) {
+      this.cacheTimer = 0;
+      this.lastModifiedSize = world ? world.modifiedBlocks.size : 0;
+      this.heightCacheKeys.fill(0x7fffffff);
+      this.biomeCacheKeys.fill(0x7fffffff);
+    }
+
     if (isRain) {
-      this.rainLines.visible = true;
       this.rainLines.position.copy(playerPos);
 
       const isHeavy = weather === WeatherType.RAINSTORM || weather === WeatherType.THUNDERSTORM;
@@ -427,120 +502,131 @@ export class WeatherEffects {
       }
       this.lastPlayerPos.copy(playerPos);
 
-      // Periodically flush cache (every ~1.5s or on block modification)
-      this.cacheTimer += delta;
-      if (this.cacheTimer >= 1.5 || (world && world.modifiedBlocks.size !== this.lastModifiedSize)) {
-        this.cacheTimer = 0;
-        this.lastModifiedSize = world ? world.modifiedBlocks.size : 0;
-        this.heightCacheKeys.fill(0x7fffffff);
-      }
+      let visibleRainCount = 0;
 
       for (let i = 0; i < this.rainCount; i++) {
         const idx = i * 6;
-        const speed = this.rainVelocities[i] * fallMultiplier;
-        const dy = speed * delta;
-        const dx = windX * delta;
-        const dz = windZ * delta;
 
-        // Apply motion and compensate for player movement
-        arr[idx] += dx - deltaPx;
-        arr[idx + 1] -= dy + deltaPy;
-        arr[idx + 2] += dz - deltaPz;
+        if (this.rainActive[i] === 1) {
+          const speed = this.rainVelocities[i] * fallMultiplier;
+          const dy = speed * delta;
+          const dx = windX * delta;
+          const dz = windZ * delta;
 
-        // Horizontal boundary wrap within 48m cube around player
-        if (arr[idx] > 24) arr[idx] -= 48;
-        else if (arr[idx] < -24) arr[idx] += 48;
+          // Apply motion and compensate for player movement
+          arr[idx] += dx - deltaPx;
+          arr[idx + 1] -= dy + deltaPy;
+          arr[idx + 2] += dz - deltaPz;
 
-        if (arr[idx + 2] > 24) arr[idx + 2] -= 48;
-        else if (arr[idx + 2] < -24) arr[idx + 2] += 48;
+          // Horizontal boundary wrap within 48m cube around player
+          if (arr[idx] > 24) arr[idx] -= 48;
+          else if (arr[idx] < -24) arr[idx] += 48;
 
-        // World coordinates of drop
-        const worldX = playerPos.x + arr[idx];
-        const worldTailY = playerPos.y + arr[idx + 1];
-        const worldZ = playerPos.z + arr[idx + 2];
+          if (arr[idx + 2] > 24) arr[idx + 2] -= 48;
+          else if (arr[idx + 2] < -24) arr[idx + 2] += 48;
 
-        // Query solid obstruction height in this column
-        const stopH = this.getRainStopHeight(world, worldX, worldZ);
-        const relStopH = stopH - playerPos.y;
+          // World coordinates of drop
+          const worldX = playerPos.x + arr[idx];
+          const worldTailY = playerPos.y + arr[idx + 1];
+          const worldZ = playerPos.z + arr[idx + 2];
 
-        const rawTipRelY = arr[idx + 1] - dropLen;
-        const worldTipY = playerPos.y + rawTipRelY;
-
-        // Check if the drop has completely landed on or is below the solid block
-        // OR if it's below the bottom of our simulation box (-4 relative to player)
-        if (worldTailY <= stopH || arr[idx + 1] < -4) {
-          // If drop landed on a visible solid surface, splash!
-          if (world && worldTailY <= stopH + 1.2 && stopH > 0) {
-            this.spawnRainSplash(worldX, stopH + 0.03, worldZ, isHeavy);
-          }
-
-          // Respawn drop at top of rain box
-          arr[idx] = (Math.random() - 0.5) * 48;
-          arr[idx + 2] = (Math.random() - 0.5) * 48;
-          const newWorldX = playerPos.x + arr[idx];
-          const newWorldZ = playerPos.z + arr[idx + 2];
-          const newStopH = this.getRainStopHeight(world, newWorldX, newWorldZ);
-
-          const spawnRelY = 24 + Math.random() * 8;
-          const spawnWorldY = playerPos.y + spawnRelY;
-
-          // Check if column is in a biome where rain occurs (not desert or arctic)
-          const dropBiome = world?.generator ? world.generator.getSubBiomeAt(newWorldX, newWorldZ, playerPos.y) : null;
-          const isDropInRainBiome = !dropBiome || (
-            !dropBiome.isDesert &&
-            dropBiome.category !== 'desert' &&
-            dropBiome.mainBiome !== BiomeType.THE_DESERT &&
-            !dropBiome.isArctic &&
-            dropBiome.category !== 'arctic' &&
-            !dropBiome.isEversnow &&
-            dropBiome.mainBiome !== BiomeType.ARCTIC &&
-            dropBiome.mainBiome !== BiomeType.BOREAL_PEAKS
-          );
-
-          if (spawnWorldY <= newStopH || !isDropInRainBiome) {
-            // Entire column at this height is covered by solid blocks/roof/cave above, or in a dry/cold biome!
-            // Hide this drop by setting both endpoints far out of view
+          // Rain NEVER falls in deserts or snowy biomes!
+          const precipType = this.getColumnPrecipType(world, worldX, worldZ);
+          if (precipType !== WeatherEffects.PRECIP_NORMAL) {
             arr[idx + 1] = -9999;
             arr[idx + 4] = -9999;
-          } else {
-            arr[idx + 1] = spawnRelY;
-            arr[idx + 3] = arr[idx] + (windX * 0.035);
-            arr[idx + 4] = arr[idx + 1] - dropLen;
-            arr[idx + 5] = arr[idx + 2] + (windZ * 0.035);
+            this.rainActive[i] = 0;
+            continue;
           }
-          continue;
-        }
 
-        // Drop is falling above the solid block.
-        // If the tip is reaching into the solid block, clamp tip to stop surface so it doesn't poke through ceiling/floor
-        let tipRelY = rawTipRelY;
-        if (worldTipY < stopH) {
-          tipRelY = relStopH;
-          if (world && Math.random() < 0.12) {
-            this.spawnRainSplash(worldX, stopH + 0.03, worldZ, isHeavy);
+          // Query solid obstruction height in this column
+          const stopH = this.getRainStopHeight(world, worldX, worldZ);
+          const relStopH = stopH - playerPos.y;
+
+          const rawTipRelY = arr[idx + 1] - dropLen;
+          const worldTipY = playerPos.y + rawTipRelY;
+
+          // Check if drop has landed or reached simulation floor
+          if (worldTailY <= stopH || arr[idx + 1] < -4) {
+            // Rain splash only when genuinely striking a solid block or water above ground
+            if (world && stopH > 0 && Math.abs(worldTailY - stopH) <= 1.5 && arr[idx + 1] >= -3.5) {
+              this.spawnRainSplash(worldX, stopH + 0.03, worldZ, isHeavy);
+            }
+
+            // Respawn drop at top of rain box
+            arr[idx] = (Math.random() - 0.5) * 48;
+            arr[idx + 2] = (Math.random() - 0.5) * 48;
+            const newWorldX = playerPos.x + arr[idx];
+            const newWorldZ = playerPos.z + arr[idx + 2];
+            const newPrecip = this.getColumnPrecipType(world, newWorldX, newWorldZ);
+            const newStopH = this.getRainStopHeight(world, newWorldX, newWorldZ);
+
+            const spawnRelY = 24 + Math.random() * 8;
+            if (newPrecip === WeatherEffects.PRECIP_NORMAL && playerPos.y + spawnRelY > newStopH) {
+              arr[idx + 1] = spawnRelY;
+              arr[idx + 3] = arr[idx] + (windX * 0.035);
+              arr[idx + 4] = arr[idx + 1] - dropLen;
+              arr[idx + 5] = arr[idx + 2] + (windZ * 0.035);
+              this.rainActive[i] = 1;
+              visibleRainCount++;
+            } else {
+              arr[idx + 1] = -9999;
+              arr[idx + 4] = -9999;
+              this.rainActive[i] = 0;
+            }
+            continue;
+          }
+
+          // Drop is falling above the solid block: clamp tip if touching surface
+          let tipRelY = rawTipRelY;
+          if (worldTipY < stopH) {
+            tipRelY = relStopH;
+            if (world && Math.random() < 0.12 && arr[idx + 1] >= -3.5) {
+              this.spawnRainSplash(worldX, stopH + 0.03, worldZ, isHeavy);
+            }
+          }
+
+          arr[idx + 3] = arr[idx] + (windX * 0.035);
+          arr[idx + 4] = tipRelY;
+          arr[idx + 5] = arr[idx + 2] + (windZ * 0.035);
+          visibleRainCount++;
+        } else {
+          // Staggered activation attempt: spawn drop if entering a rainy column
+          if ((i + this.frameCount) % 10 === 0) {
+            arr[idx] = (Math.random() - 0.5) * 48;
+            arr[idx + 2] = (Math.random() - 0.5) * 48;
+            const newWorldX = playerPos.x + arr[idx];
+            const newWorldZ = playerPos.z + arr[idx + 2];
+            const newPrecip = this.getColumnPrecipType(world, newWorldX, newWorldZ);
+            if (newPrecip === WeatherEffects.PRECIP_NORMAL) {
+              const newStopH = this.getRainStopHeight(world, newWorldX, newWorldZ);
+              const spawnRelY = 24 + Math.random() * 8;
+              if (playerPos.y + spawnRelY > newStopH) {
+                arr[idx + 1] = spawnRelY;
+                arr[idx + 3] = arr[idx] + (windX * 0.035);
+                arr[idx + 4] = arr[idx + 1] - dropLen;
+                arr[idx + 5] = arr[idx + 2] + (windZ * 0.035);
+                this.rainActive[i] = 1;
+                visibleRainCount++;
+              }
+            }
           }
         }
-
-        arr[idx + 3] = arr[idx] + (windX * 0.035);
-        arr[idx + 4] = tipRelY;
-        arr[idx + 5] = arr[idx + 2] + (windZ * 0.035);
       }
       pos.needsUpdate = true;
+      this.rainLines.visible = visibleRainCount > 0;
     } else {
       if (this.rainLines.visible) {
         this.rainLines.visible = false;
         this.rainMat.opacity = 0;
+        this.rainActive.fill(0);
+        this.rainPositions.fill(-9999);
+        (this.rainGeo.getAttribute('position') as THREE.BufferAttribute).needsUpdate = true;
       }
     }
 
     // 2. Snow / Snowstorm / Eversnow updates
-    const isSnow =
-      weather === WeatherType.SNOWY ||
-      weather === WeatherType.SNOWSTORM ||
-      weather === WeatherType.EVERSNOW;
-
     if (isSnow) {
-      this.snowPoints.visible = true;
       this.snowPoints.position.copy(playerPos);
 
       let fallSpeed = 0.9;
@@ -567,6 +653,14 @@ export class WeatherEffects {
         windZ = 2.8;
         snowSize = 0.19;
         snowOpacity = 0.92;
+      } else if (isRain) {
+        // Rain storms in snowy biomes manifest as crisp, brisk snowfall
+        const isStorm = weather === WeatherType.RAINSTORM || weather === WeatherType.THUNDERSTORM;
+        fallSpeed = isStorm ? 1.4 : 0.8;
+        windX = isStorm ? 1.6 : 0.3;
+        windZ = isStorm ? 0.9 : 0.2;
+        snowSize = isStorm ? 0.13 : 0.10;
+        snowOpacity = isStorm ? 0.7 : 0.5;
       }
 
       this.snowMat.size = snowSize;
@@ -585,59 +679,102 @@ export class WeatherEffects {
         deltaPz = playerPos.z - this.lastPlayerPos.z;
       }
 
+      let visibleSnowCount = 0;
+
       for (let i = 0; i < this.snowCount; i++) {
         const idx = i * 3;
-        const flutter = Math.sin(Date.now() * 0.003 + i * 0.5);
 
-        arr[idx] += (windX + flutter * 0.4) * delta - deltaPx;
-        arr[idx + 1] -= (fallSpeed + Math.sin(i * 1.8) * 0.2) * delta + deltaPy;
-        arr[idx + 2] += (windZ + Math.cos(Date.now() * 0.003 + i * 0.5) * 0.4) * delta - deltaPz;
+        if (this.snowActive[i] === 1) {
+          const flutter = Math.sin(Date.now() * 0.003 + i * 0.5);
 
-        if (arr[idx] > 26) arr[idx] -= 52;
-        else if (arr[idx] < -26) arr[idx] += 52;
+          arr[idx] += (windX + flutter * 0.4) * delta - deltaPx;
+          arr[idx + 1] -= (fallSpeed + Math.sin(i * 1.8) * 0.2) * delta + deltaPy;
+          arr[idx + 2] += (windZ + Math.cos(Date.now() * 0.003 + i * 0.5) * 0.4) * delta - deltaPz;
 
-        if (arr[idx + 2] > 26) arr[idx + 2] -= 52;
-        else if (arr[idx + 2] < -26) arr[idx + 2] += 52;
+          if (arr[idx] > 26) arr[idx] -= 52;
+          else if (arr[idx] < -26) arr[idx] += 52;
 
-        const worldX = playerPos.x + arr[idx];
-        const worldY = playerPos.y + arr[idx + 1];
-        const worldZ = playerPos.z + arr[idx + 2];
-        const stopH = this.getRainStopHeight(world, worldX, worldZ);
+          if (arr[idx + 2] > 26) arr[idx + 2] -= 52;
+          else if (arr[idx + 2] < -26) arr[idx + 2] += 52;
 
-        if (worldY <= stopH || arr[idx + 1] < -4) {
-          arr[idx] = (Math.random() - 0.5) * 52;
-          arr[idx + 2] = (Math.random() - 0.5) * 52;
-          const newWorldX = playerPos.x + arr[idx];
-          const newWorldZ = playerPos.z + arr[idx + 2];
-          const newStopH = this.getRainStopHeight(world, newWorldX, newWorldZ);
+          const worldX = playerPos.x + arr[idx];
+          const worldY = playerPos.y + arr[idx + 1];
+          const worldZ = playerPos.z + arr[idx + 2];
 
-          const spawnRelY = 24 + Math.random() * 8;
-          const flakeBiome = world?.generator ? world.generator.getSubBiomeAt(newWorldX, newWorldZ, playerPos.y) : null;
-          const isFlakeInSnowBiome = flakeBiome && (
-            flakeBiome.isArctic ||
-            flakeBiome.category === 'arctic' ||
-            flakeBiome.isEversnow ||
-            flakeBiome.id === 'eversnow' ||
-            flakeBiome.id === 'everfrost_forest' ||
-            flakeBiome.id === 'frostbite_peaks' ||
-            flakeBiome.id === 'snowy_shoreline' ||
-            flakeBiome.id === 'eversnow_bluffs' ||
-            flakeBiome.mainBiome === BiomeType.ARCTIC ||
-            flakeBiome.mainBiome === BiomeType.BOREAL_PEAKS
-          );
+          // Snow is NEVER allowed in deserts (PRECIP_NONE).
+          // And during rain weather, snow is ONLY allowed in snowy biomes (PRECIP_SNOW_ONLY).
+          const precipType = this.getColumnPrecipType(world, worldX, worldZ);
+          const snowAllowed = isRain
+            ? (precipType === WeatherEffects.PRECIP_SNOW_ONLY)
+            : (precipType !== WeatherEffects.PRECIP_NONE);
 
-          if (playerPos.y + spawnRelY <= newStopH || !isFlakeInSnowBiome) {
+          if (!snowAllowed) {
             arr[idx + 1] = -9999;
-          } else {
-            arr[idx + 1] = spawnRelY;
+            this.snowActive[i] = 0;
+            continue;
+          }
+
+          const stopH = this.getRainStopHeight(world, worldX, worldZ);
+
+          if (worldY <= stopH || arr[idx + 1] < -4) {
+            arr[idx] = (Math.random() - 0.5) * 52;
+            arr[idx + 2] = (Math.random() - 0.5) * 52;
+            const newWorldX = playerPos.x + arr[idx];
+            const newWorldZ = playerPos.z + arr[idx + 2];
+            const newPrecip = this.getColumnPrecipType(world, newWorldX, newWorldZ);
+            const newStopH = this.getRainStopHeight(world, newWorldX, newWorldZ);
+
+            const isNewAllowed = isRain
+              ? (newPrecip === WeatherEffects.PRECIP_SNOW_ONLY)
+              : (newPrecip !== WeatherEffects.PRECIP_NONE);
+
+            const spawnRelY = 24 + Math.random() * 8;
+            if (isNewAllowed && playerPos.y + spawnRelY > newStopH) {
+              arr[idx + 1] = spawnRelY;
+              this.snowActive[i] = 1;
+              visibleSnowCount++;
+            } else {
+              arr[idx + 1] = -9999;
+              this.snowActive[i] = 0;
+            }
+            continue;
+          }
+
+          visibleSnowCount++;
+        } else {
+          // Staggered activation attempt
+          if ((i + this.frameCount) % 10 === 0) {
+            arr[idx] = (Math.random() - 0.5) * 52;
+            arr[idx + 2] = (Math.random() - 0.5) * 52;
+            const newWorldX = playerPos.x + arr[idx];
+            const newWorldZ = playerPos.z + arr[idx + 2];
+            const newPrecip = this.getColumnPrecipType(world, newWorldX, newWorldZ);
+
+            const isNewAllowed = isRain
+              ? (newPrecip === WeatherEffects.PRECIP_SNOW_ONLY)
+              : (newPrecip !== WeatherEffects.PRECIP_NONE);
+
+            if (isNewAllowed) {
+              const newStopH = this.getRainStopHeight(world, newWorldX, newWorldZ);
+              const spawnRelY = 24 + Math.random() * 8;
+              if (playerPos.y + spawnRelY > newStopH) {
+                arr[idx + 1] = spawnRelY;
+                this.snowActive[i] = 1;
+                visibleSnowCount++;
+              }
+            }
           }
         }
       }
       pos.needsUpdate = true;
+      this.snowPoints.visible = visibleSnowCount > 0;
     } else {
       if (this.snowPoints.visible) {
         this.snowPoints.visible = false;
         this.snowMat.opacity = 0;
+        this.snowActive.fill(0);
+        this.snowPositions.fill(-9999);
+        (this.snowGeo.getAttribute('position') as THREE.BufferAttribute).needsUpdate = true;
       }
     }
 

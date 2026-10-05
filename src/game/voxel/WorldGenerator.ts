@@ -1,5 +1,5 @@
 import { BiomeType, BlockType } from '../../types';
-import { isLeavesBlock, isLogBlock, isPlantBlock } from './Blocks';
+import { isLeavesBlock, isLogBlock, isPlantBlock, isWaterBlock } from './Blocks';
 import { Chunk } from './Chunk';
 import { CHUNK_D, CHUNK_H, CHUNK_W, SEA_LEVEL } from './ChunkConstants';
 import { isWaterOrWaterlogged } from './WaterFlora';
@@ -67,6 +67,36 @@ export class WorldGenerator {
   public isDesertAt(wx: number, wz: number): boolean {
     const params = this.getBiomeParameters(wx, wz);
     return params.continentalness >= -0.15 && params.temperature > 0.38;
+  }
+
+  public isOceanWaterColumn(subBiome?: VerdantSubBiomeDef, continentalness?: number): boolean {
+    if (subBiome) {
+      if (subBiome.id === 'river') return false;
+      if (
+        subBiome.category === 'ocean' ||
+        subBiome.category === 'trench' ||
+        subBiome.mainBiome === BiomeType.THE_OCEAN ||
+        subBiome.mainBiome === BiomeType.TRENCHES ||
+        subBiome.id === 'frozen_ocean' ||
+        subBiome.id === 'cold_ocean' ||
+        subBiome.id === 'open_ocean' ||
+        subBiome.id === 'coral_cove' ||
+        subBiome.id === 'warm_ocean' ||
+        subBiome.id === 'sandy_shoreline' ||
+        subBiome.id === 'stone_cliff_shoreline' ||
+        subBiome.id === 'snowy_shoreline' ||
+        subBiome.id === 'abyssal_trench' ||
+        subBiome.hasGlaciers ||
+        subBiome.hasCoralReef ||
+        subBiome.hasTrenchFissure
+      ) {
+        return true;
+      }
+    }
+    if (continentalness !== undefined && continentalness < -0.15 && subBiome?.category !== 'river') {
+      return true;
+    }
+    return false;
   }
 
   /**
@@ -1458,7 +1488,7 @@ export class WorldGenerator {
         }
 
         if (isOceanic) {
-          return isFrozenCave ? BlockType.AIR : BlockType.WATER;
+          return isFrozenCave ? BlockType.AIR : BlockType.SALT_WATER;
         }
         return BlockType.AIR;
       }
@@ -1664,7 +1694,7 @@ export class WorldGenerator {
         // "their top level of water (as well as all other water exposed to air) is turned into ice"
         return BlockType.PACKED_ICE;
       }
-      return BlockType.WATER;
+      return this.isOceanWaterColumn(subBiome) ? BlockType.SALT_WATER : BlockType.WATER;
     }
 
     return BlockType.AIR;
@@ -1824,12 +1854,14 @@ export class WorldGenerator {
 
         // Water filling
         if (surfaceY < SEA_LEVEL) {
+          const isOcean = this.isOceanWaterColumn(subBiome, colBiomeParams.continentalness);
+          const waterBlock = isOcean ? BlockType.SALT_WATER : BlockType.WATER;
           for (let y = surfaceY + 1; y <= SEA_LEVEL; y++) {
             const voxelIdx = colIdx + y * (CHUNK_W * CHUNK_D);
             if (isArcticZone && y === SEA_LEVEL) {
               voxels[voxelIdx] = BlockType.PACKED_ICE;
             } else {
-              voxels[voxelIdx] = BlockType.WATER;
+              voxels[voxelIdx] = waterBlock;
             }
           }
         }
@@ -1860,7 +1892,7 @@ export class WorldGenerator {
             const isFloorBelow = y > 1 && !this.isCave(wx, y - 1, wz);
             // Reuse column-cached params — avoids 7 fbm2D calls per cave-y iteration
             const params = colBiomeParams;
-            const isOceanic = params.continentalness < -0.26;
+            const isOceanic = params.continentalness < -0.26 || this.isOceanWaterColumn(subBiome, params.continentalness);
             const isFrozenCave = params.temperature < -0.15;
 
             if (isFloorBelow) {
@@ -1891,7 +1923,7 @@ export class WorldGenerator {
                     voxels[colIdx + (y + 1) * (CHUNK_W * CHUNK_D)] = BlockType.BLOOD_KELP;
                     voxels[colIdx + (y + 2) * (CHUNK_W * CHUNK_D)] = BlockType.BLOOD_KELP;
                   } else {
-                    voxels[voxelIdx] = BlockType.WATER;
+                    voxels[voxelIdx] = BlockType.SALT_WATER;
                   }
                 }
               } else {
@@ -1914,7 +1946,7 @@ export class WorldGenerator {
               }
             } else {
               if (isOceanic) {
-                voxels[voxelIdx] = isFrozenCave ? BlockType.AIR : BlockType.WATER;
+                voxels[voxelIdx] = isFrozenCave ? BlockType.AIR : BlockType.SALT_WATER;
               } else {
                 voxels[voxelIdx] = BlockType.AIR;
               }
@@ -2075,7 +2107,7 @@ export class WorldGenerator {
           const baseBlock = voxels[tlx + tlz * CHUNK_W + tree.groundY * (CHUNK_W * CHUNK_D)];
           if (
             baseBlock === BlockType.AIR ||
-            baseBlock === BlockType.WATER ||
+            isWaterBlock(baseBlock) ||
             baseBlock === BlockType.PACKED_ICE ||
             isPlantBlock(baseBlock)
           ) {
@@ -2105,7 +2137,7 @@ export class WorldGenerator {
               // Logs take precedence: logs must NEVER be blocked or replaced by plants or leaves
               if (
                 currentBlock === BlockType.AIR ||
-                currentBlock === BlockType.WATER ||
+                isWaterBlock(currentBlock) ||
                 isPlantBlock(currentBlock) ||
                 isLeavesBlock(currentBlock)
               ) {
@@ -2116,14 +2148,14 @@ export class WorldGenerator {
               // Leaves replace air, water, and plants, but NEVER logs
               if (
                 currentBlock === BlockType.AIR ||
-                currentBlock === BlockType.WATER ||
+                isWaterBlock(currentBlock) ||
                 isPlantBlock(currentBlock)
               ) {
                 voxels[vIdx] = bType;
                 if (twy > maxChunkY) maxChunkY = twy;
               }
             } else {
-              if (currentBlock === BlockType.AIR || currentBlock === BlockType.WATER || isPlantBlock(currentBlock)) {
+              if (currentBlock === BlockType.AIR || isWaterBlock(currentBlock) || isPlantBlock(currentBlock)) {
                 voxels[vIdx] = bType;
                 if (twy > maxChunkY) maxChunkY = twy;
               }
@@ -2191,7 +2223,7 @@ export class WorldGenerator {
         // Must be solid seabed ground (NOT water, NOT air, NOT ice, NOT existing plant)
         const isValidSeabed =
           seabedBlock !== BlockType.AIR &&
-          seabedBlock !== BlockType.WATER &&
+          !isWaterBlock(seabedBlock) &&
           seabedBlock !== BlockType.PACKED_ICE &&
           !isPlantBlock(seabedBlock);
 
@@ -2204,7 +2236,7 @@ export class WorldGenerator {
             const reefTop = Math.min(SEA_LEVEL - 2, surfaceY + Math.round((coralNoise - 0.3) * 10) + 1);
             for (let y = surfaceY + 1; y <= reefTop; y++) {
               const voxelIdx = colIdx + y * (CHUNK_W * CHUNK_D);
-              if (voxels[voxelIdx] === BlockType.WATER) {
+              if (isWaterBlock(voxels[voxelIdx])) {
                 voxels[voxelIdx] = BlockType.CORAL_BLOCK;
               } else {
                 break;
@@ -2219,7 +2251,7 @@ export class WorldGenerator {
           if (floraNoise > 0.30) {
             const tHash = hash2(wx, wz, 919);
             const basePlantIdx = colIdx + (surfaceY + 1) * (CHUNK_W * CHUNK_D);
-            if (voxels[basePlantIdx] === BlockType.WATER) {
+            if (isWaterBlock(voxels[basePlantIdx])) {
               if (floraNoise > 0.60 && tHash < 0.40) {
                 // Hydrothermal red vent
                 voxels[basePlantIdx] = BlockType.ABYSSAL_CRIMSON_VENT;
@@ -2234,8 +2266,8 @@ export class WorldGenerator {
                 for (let y = surfaceY + 1; y <= kelpHeight; y++) {
                   const voxelIdx = colIdx + y * (CHUNK_W * CHUNK_D);
                   const below = voxels[colIdx + (y - 1) * (CHUNK_W * CHUNK_D)];
-                  if (below === BlockType.AIR || below === BlockType.WATER) break;
-                  if (voxels[voxelIdx] === BlockType.WATER) {
+                  if (below === BlockType.AIR || isWaterBlock(below)) break;
+                  if (isWaterBlock(voxels[voxelIdx])) {
                     voxels[voxelIdx] = BlockType.BLOOD_KELP;
                   } else {
                     break;
@@ -2266,8 +2298,8 @@ export class WorldGenerator {
                 const voxelIdx = colIdx + y * (CHUNK_W * CHUNK_D);
                 const below = voxels[colIdx + (y - 1) * (CHUNK_W * CHUNK_D)];
                 // Unbroken stalk check: must be supported by solid seabed or kelp below
-                if (below === BlockType.AIR || below === BlockType.WATER) break;
-                if (voxels[voxelIdx] === BlockType.WATER) {
+                if (below === BlockType.AIR || isWaterBlock(below)) break;
+                if (isWaterBlock(voxels[voxelIdx])) {
                   voxels[voxelIdx] = BlockType.TALL_KELP;
                 } else {
                   break;
@@ -2285,7 +2317,7 @@ export class WorldGenerator {
             const dHash = hash2(wx, wz, 515);
             const voxelIdx = colIdx + (surfaceY + 1) * (CHUNK_W * CHUNK_D);
 
-            if (voxels[voxelIdx] === BlockType.WATER) {
+            if (isWaterBlock(voxels[voxelIdx])) {
               if (dHash < 0.22) {
                 // Seagrass meadow
                 voxels[voxelIdx] = BlockType.SEAGRASS;
@@ -2293,7 +2325,7 @@ export class WorldGenerator {
 
                 if (dHash < 0.08 && meadowNoise > 0.38 && surfaceY + 2 <= SEA_LEVEL - 1) {
                   const topIdx = colIdx + (surfaceY + 2) * (CHUNK_W * CHUNK_D);
-                  if (voxels[topIdx] === BlockType.WATER) {
+                  if (isWaterBlock(voxels[topIdx])) {
                     voxels[topIdx] = BlockType.SEAGRASS;
                     if (surfaceY + 2 > maxChunkY) maxChunkY = surfaceY + 2;
                   }
@@ -2433,7 +2465,7 @@ export class WorldGenerator {
                 if (
                   voxels[reedIdx] === BlockType.AIR &&
                   groundBlock !== BlockType.AIR &&
-                  groundBlock !== BlockType.WATER &&
+                  !isWaterBlock(groundBlock) &&
                   groundBlock !== BlockType.PACKED_ICE &&
                   !isPlantBlock(groundBlock) &&
                   !isLogBlock(voxels[reedIdx])
@@ -2458,7 +2490,7 @@ export class WorldGenerator {
                 if (
                   voxels[rootIdx] === BlockType.AIR &&
                   groundBlock !== BlockType.AIR &&
-                  groundBlock !== BlockType.WATER &&
+                  !isWaterBlock(groundBlock) &&
                   groundBlock !== BlockType.PACKED_ICE &&
                   !isPlantBlock(groundBlock)
                 ) {
@@ -2488,7 +2520,7 @@ export class WorldGenerator {
             if (
               voxels[driedIdx] === BlockType.AIR &&
               groundBlock !== BlockType.AIR &&
-              groundBlock !== BlockType.WATER &&
+              !isWaterBlock(groundBlock) &&
               groundBlock !== BlockType.PACKED_ICE &&
               !isPlantBlock(groundBlock)
             ) {

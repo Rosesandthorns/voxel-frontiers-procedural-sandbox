@@ -311,6 +311,11 @@ export class SeasonWeatherSystem {
    * Deposits or increases topsnow in a column, burying plants if encountered.
    */
   private depositTopsnowAtColumn(world: VoxelWorld, wx: number, wz: number, maxStage: number) {
+    // Prevent snow from gathering in desert biomes
+    if (world.generator?.isDesertAt(wx, wz)) {
+      return;
+    }
+
     // Prevent snow from gathering if within 5x5 radius of an active Heater or enclosed heated room
     if (world.thermalWorkstationManager?.isSnowPreventedAt(wx, wz)) {
       return;

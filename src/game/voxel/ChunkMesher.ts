@@ -306,7 +306,7 @@ export class ChunkMesher {
             const uvFace = blockUVs.side || blockUVs.top;
 
             const isWallBlock = (b: BlockType): boolean => {
-              if (b === BlockType.AIR || b === BlockType.VINE || b === BlockType.WATER || b === BlockType.LAVA) return false;
+              if (b === BlockType.AIR || b === BlockType.VINE || isWaterBlock(b) || b === BlockType.LAVA) return false;
               const d = BLOCK_DEFS[b];
               return !!(d && d.solid && d.renderType !== 'cross');
             };
@@ -787,7 +787,7 @@ export class ChunkMesher {
             if (renderWater) {
               if (isWaterFaceCulled(neighborBlock, ny, y + ny, neighborIsSolid, block)) continue;
             } else if (isPureLava) {
-              if (neighborBlock === BlockType.LAVA || neighborBlock === BlockType.WATER) continue;
+              if (neighborBlock === BlockType.LAVA || isWaterBlock(neighborBlock)) continue;
               if (neighborIsSolid) continue;
               if (ny === -1 && neighborBlock !== BlockType.AIR) continue;
               if (ny === 0  && neighborBlock !== BlockType.AIR) continue;

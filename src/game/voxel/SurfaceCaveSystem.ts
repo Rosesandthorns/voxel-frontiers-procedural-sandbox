@@ -1,4 +1,5 @@
 import { BlockType } from '../../types';
+import { isWaterBlock } from './Blocks';
 import { CHUNK_D, CHUNK_H, CHUNK_W, SEA_LEVEL } from './ChunkConstants';
 import { FastNoise } from './Noise';
 import { VerdantSubBiomeDef } from './SubBiomeTypes';
@@ -451,7 +452,7 @@ export class SurfaceCaveSystem {
 
                   if (
                     currentFloor !== BlockType.AIR &&
-                    currentFloor !== BlockType.WATER &&
+                    !isWaterBlock(currentFloor) &&
                     currentFloor !== BlockType.OBSIDIAN
                   ) {
                     const floorNoise = this.hash2D(wx, wz, y * 31);

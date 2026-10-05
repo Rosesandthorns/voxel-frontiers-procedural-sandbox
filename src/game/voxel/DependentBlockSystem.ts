@@ -1,12 +1,12 @@
 import { BlockType } from '../../types';
-import { BLOCK_DEFS, isFlintBlock, isPlantBlock } from './Blocks';
+import { BLOCK_DEFS, isFlintBlock, isPlantBlock, isWaterBlock } from './Blocks';
 import { VoxelWorld } from './VoxelWorld';
 
 /**
  * Checks if a given block type requires a solid supporting block to remain in place.
  */
 export function isDependentBlock(type: BlockType): boolean {
-  if (type === BlockType.AIR || type === BlockType.WATER || type === BlockType.LAVA) {
+  if (type === BlockType.AIR || isWaterBlock(type) || type === BlockType.LAVA) {
     return false;
   }
   if (isPlantBlock(type)) return true;
@@ -31,7 +31,7 @@ export function hasSolidSupport(world: VoxelWorld, x: number, y: number, z: numb
 
   for (const [dx, dy, dz] of dirs) {
     const neighbor = world.getBlock(x + dx, y + dy, z + dz);
-    if (neighbor === BlockType.AIR || neighbor === BlockType.WATER || neighbor === BlockType.LAVA || isFlintBlock(neighbor)) {
+    if (neighbor === BlockType.AIR || isWaterBlock(neighbor) || neighbor === BlockType.LAVA || isFlintBlock(neighbor)) {
       continue;
     }
     const def = (BLOCK_DEFS as Record<number, { solid?: boolean }>)[neighbor];

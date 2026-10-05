@@ -1,5 +1,5 @@
 import { BlockType } from '../../types';
-import { BLOCK_DEFS } from '../voxel/Blocks';
+import { BLOCK_DEFS, isWaterBlock } from '../voxel/Blocks';
 import { CHUNK_H, VoxelWorld } from '../voxel/VoxelWorld';
 
 export interface SpawnPoint {
@@ -24,7 +24,7 @@ export class SpawnSystem {
     if (chunk) {
       for (let y = CHUNK_H - 1; y >= 1; y--) {
         const b = chunk.getBlock(8, y, 8);
-        if (b !== BlockType.AIR && b !== BlockType.WATER) {
+        if (b !== BlockType.AIR && !isWaterBlock(b)) {
           const def = BLOCK_DEFS[b];
           if (def && def.solid) {
             naturalFloorY = y;

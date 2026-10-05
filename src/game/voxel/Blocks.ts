@@ -223,6 +223,16 @@ export const BLOCK_DEFS: Record<BlockType, BlockDef> = {
     color: '#29b6f6',
     soundType: 'water'
   },
+  [BlockType.SALT_WATER]: {
+    id: BlockType.SALT_WATER,
+    name: 'Salt Water',
+    solid: false,
+    transparent: true,
+    liquid: true,
+    hardness: 0,
+    color: '#29b6f6',
+    soundType: 'water'
+  },
   [BlockType.WATER_FLOWING_7]: {
     id: BlockType.WATER_FLOWING_7,
     name: 'Flowing Water',
@@ -1568,17 +1578,18 @@ export function isUnderwaterPlant(type: BlockType): boolean {
   );
 }
 
-/** Check if block is any form of water (source, flowing 1-7, or falling) */
+/** Check if block is any form of water (source, flowing 1-7, falling, or salt water) */
 export function isWaterBlock(type: BlockType): boolean {
   return (
     type === BlockType.WATER ||
+    type === BlockType.SALT_WATER ||
     (type >= BlockType.WATER_FLOWING_7 && type <= BlockType.WATER_FALLING)
   );
 }
 
 /** Check if block is stationary water source block */
 export function isWaterSource(type: BlockType): boolean {
-  return type === BlockType.WATER;
+  return type === BlockType.WATER || type === BlockType.SALT_WATER;
 }
 
 /** Check if block is falling vertical water stream */
@@ -1593,7 +1604,7 @@ export function isWaterFalling(type: BlockType): boolean {
  * 0: Not water
  */
 export function getWaterLevel(type: BlockType): number {
-  if (type === BlockType.WATER || type === BlockType.WATER_FALLING) return 8;
+  if (type === BlockType.WATER || type === BlockType.SALT_WATER || type === BlockType.WATER_FALLING) return 8;
   if (type === BlockType.WATER_FLOWING_7) return 7;
   if (type === BlockType.WATER_FLOWING_6) return 6;
   if (type === BlockType.WATER_FLOWING_5) return 5;

@@ -195,7 +195,8 @@ export enum BlockType {
   CEIBA_DOOR_BOTTOM = 182,
   CEIBA_DOOR_TOP = 183,
   CEIBA_DOOR_BOTTOM_OPEN = 184,
-  CEIBA_DOOR_TOP_OPEN = 185
+  CEIBA_DOOR_TOP_OPEN = 185,
+  SALT_WATER = 186
 }
 
 export enum Season {

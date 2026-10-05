@@ -166,6 +166,7 @@ export function registerAllRemainingBlocks32(
   // 23. WATER
   const water = generateWater();
   registerBlock32(BlockType.WATER, water, water);
+  registerBlock32(BlockType.SALT_WATER, water, water);
 
   // 24. LAVA
   const lava = generateLava();

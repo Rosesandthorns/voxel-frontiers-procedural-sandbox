@@ -728,7 +728,11 @@ export class SkySystem {
     const sunZ = Math.cos(sunAngle) * Math.sin(tiltAngle) * CELESTIAL_DIST;
 
     this.sunGroup.position.set(sunX, sunY, sunZ);
-    this.sunGroup.lookAt(0, 0, 0);
+    if (camera) {
+      this.sunGroup.quaternion.copy(camera.quaternion);
+    } else {
+      this.sunGroup.lookAt(playerPos.x, playerPos.y + 1.6, playerPos.z);
+    }
 
     // Moon orbits 180 degrees directly opposite the Sun
     const moonAngle = sunAngle + Math.PI;
@@ -737,7 +741,11 @@ export class SkySystem {
     const moonZ = Math.cos(moonAngle) * Math.sin(tiltAngle) * CELESTIAL_DIST;
 
     this.moonGroup.position.set(moonX, moonY, moonZ);
-    this.moonGroup.lookAt(0, 0, 0);
+    if (camera) {
+      this.moonGroup.quaternion.copy(camera.quaternion);
+    } else {
+      this.moonGroup.lookAt(playerPos.x, playerPos.y + 1.6, playerPos.z);
+    }
 
     // Smooth horizon fade for celestial bodies as they set below the ground
     const sunHorizonFade = THREE.MathUtils.clamp((sunY + 12) / 30, 0, 1);
@@ -1021,45 +1029,10 @@ export class SkySystem {
       renderer.setClearColor(scene.background, 1.0);
     }
 
-    // 7. Update Snowfall & Blizzard particle system around player
-    if (isArctic) {
-      this.snowfallPoints.visible = true;
-      this.snowfallPoints.position.copy(playerPos);
-
-      const fallSpeed = isEversnow ? 1.8 : 0.9;
-      const windX = isEversnow ? 1.0 : 0.25;
-      const windZ = isEversnow ? 0.6 : 0.18;
-      this.snowMat.size = isEversnow ? 0.14 : 0.09;
-      this.snowMat.opacity = isEversnow ? 0.85 : 0.55;
-
-      const posAttr = this.snowGeo.getAttribute('position') as THREE.BufferAttribute;
-      const array = posAttr.array as Float32Array;
-      const dt = 0.016;
-
-      for (let i = 0; i < this.snowCount; i++) {
-        const idx = i * 3;
-        const flutter = Math.sin(timeOfDay * 100 + i * 0.4);
-        array[idx]     += (windX + flutter * 0.25) * dt;
-        array[idx + 1] -= (fallSpeed + Math.sin(i * 1.5) * 0.2) * dt;
-        array[idx + 2] += (windZ + Math.cos(timeOfDay * 100 + i * 0.4) * 0.25) * dt;
-
-        if (array[idx + 1] < -6) {
-          array[idx + 1] = 26;
-          array[idx]     = (Math.random() - 0.5) * 56;
-          array[idx + 2] = (Math.random() - 0.5) * 56;
-        }
-        if (array[idx]     >  28) array[idx]     = -28;
-        else if (array[idx]     < -28) array[idx]     =  28;
-        if (array[idx + 2] >  28) array[idx + 2] = -28;
-        else if (array[idx + 2] < -28) array[idx + 2] =  28;
-      }
-      // Only mark dirty when visible — avoids a GPU upload every frame when not snowing
-      posAttr.needsUpdate = true;
-    } else {
-      if (this.snowfallPoints.visible) {
-        this.snowfallPoints.visible = false;
-        this.snowMat.opacity = 0.0;
-      }
+    // 7. Snowfall & Weather precipitation are handled authoritatively by WeatherEffects
+    if (this.snowfallPoints.visible) {
+      this.snowfallPoints.visible = false;
+      this.snowMat.opacity = 0.0;
     }
 
     // 8. Camera far clipping plane matches fog boundary + buffer

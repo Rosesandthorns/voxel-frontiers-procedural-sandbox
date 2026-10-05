@@ -281,6 +281,11 @@ export class TextureAtlas {
             bottom: bottomTile.uv
           });
         }
+        this.uvMap.set(BlockType.SALT_WATER, {
+          top: topTile.uv,
+          side: sideTile.uv,
+          bottom: bottomTile.uv
+        });
       }
 
       this.uvMap.set(id, {
