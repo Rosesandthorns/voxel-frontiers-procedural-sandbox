@@ -1935,6 +1935,7 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
     }
     return [
       { id: 'all', name: 'All Recipes' },
+      { id: 'farming', name: 'Farming' },
       { id: 'tools', name: 'Tools' },
       { id: 'planks', name: 'Planks' },
       { id: 'workstations', name: 'Workstations' },

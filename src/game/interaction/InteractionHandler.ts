@@ -29,6 +29,15 @@ import {
 import { VoxelWorld } from '../voxel/VoxelWorld';
 import { CHUNK_H } from '../voxel/ChunkConstants';
 import { getMinedBlockReplacement } from '../voxel/WaterFlora';
+import { isCropBlock, getCropInfo, CROP_BLOCK_IDS, CROP_BLOCK_BUNDLES } from '../farming/CropBlocks';
+import {
+  CROP_SEED_ITEMS,
+  CROP_FOOD_ITEMS,
+  getMatureCropDrops,
+  getWildPlantDrops,
+  getWildSeaCabbageDrops,
+  getWiltedPlantDrops
+} from '../farming/CropItems';
 
 export interface InteractionHandlerCallbacks {
   getHotbar: () => InventorySlot[];
@@ -352,6 +361,113 @@ export class InteractionHandler {
               this.callbacks.onOpenInventory();
             }
             return;
+          }
+
+          // 1. Right-click harvesting mature crops & perennial crops
+          const cropInfo = getCropInfo(block);
+          const isWildSeaCabbage = block === CROP_BLOCK_IDS.WILD_SEA_CABBAGE;
+
+          if (isWildSeaCabbage || (cropInfo && (cropInfo.stage === 'mature' || cropInfo.crop.needs.regrows))) {
+            const droppedItemManager = this.callbacks.getDroppedItemManager?.();
+            soundManager.playStep('foliage');
+            soundManager.playChime(520);
+            entityManager.addParticle(x + 0.5, y + 0.5, z + 0.5, 0x4ade80, 12, 0.6);
+
+            const soilBelow = world.getBlock(x, y - 1, z);
+            const isCultivated = soilBelow === BlockType.FARMLAND || soilBelow === BlockType.SAND_FARMLAND;
+
+            let dropsResult = isWildSeaCabbage
+              ? getWildSeaCabbageDrops()
+              : isCultivated
+                ? getMatureCropDrops(cropInfo!.crop.id)
+                : getWildPlantDrops(cropInfo!.crop.id);
+
+            for (const d of dropsResult.items) {
+              if (droppedItemManager) {
+                droppedItemManager.spawnItem(d.item, x + 0.5, y + 0.4, z + 0.5);
+              } else {
+                this.addItemToPlayer(d.item, d.count);
+              }
+            }
+
+            // Perennial crop handling: Strawberries, Asparagus, Rhubarb, Grapes, Blueberries, Horseradish
+            // Regrows: reverts to stage 2 (growing) instead of destroying the plant!
+            if (cropInfo && cropInfo.crop.needs.regrows) {
+              const bundle = CROP_BLOCK_BUNDLES.get(cropInfo.crop.id);
+              if (bundle) {
+                world.setBlock(x, y, z, bundle.growing);
+              }
+            } else {
+              world.setBlock(x, y, z, BlockType.AIR);
+              // If crop restores soil (Beans, Chickpeas), till soil below
+              if (cropInfo && cropInfo.crop.needs.restoresSoil) {
+                world.setBlock(x, y - 1, z, BlockType.FARMLAND);
+              }
+              // If 2 blocks tall (Corn, Sugarcane, Sunflower), also clear top
+              const above = world.getBlock(x, y + 1, z);
+              if (
+                above === CROP_BLOCK_IDS.CORN_TOP ||
+                above === CROP_BLOCK_IDS.SUGARCANE_TOP ||
+                above === CROP_BLOCK_IDS.SUNFLOWER_TOP
+              ) {
+                world.setBlock(x, y + 1, z, BlockType.AIR);
+              }
+            }
+            explorationSystem.stats.blocksMined++;
+            return;
+          }
+
+          // 2. Eating food items
+          if (activeItem && activeItem.type === 'food') {
+            soundManager.playStep('organic');
+            soundManager.playChime(600);
+            entityManager.addParticle(player.pos.x, player.pos.y + 1.2, player.pos.z, 0x22c55e, 8, 0.4);
+
+            const newHotbar = hotbar.map(s => ({ ...s }));
+            if (newHotbar[selectedIndex].count > 1) {
+              newHotbar[selectedIndex].count--;
+            } else {
+              newHotbar[selectedIndex].item = null;
+              newHotbar[selectedIndex].count = 0;
+            }
+            this.callbacks.onUpdateHotbar(newHotbar);
+            return;
+          }
+
+          // 3. Planting seeds on soil / farmland / sand
+          if (activeItem && activeItem.id.endsWith('_seed')) {
+            const cropId = activeItem.id.replace('_seed', '');
+            const bundle = CROP_BLOCK_BUNDLES.get(cropId);
+            if (bundle) {
+              const placeX = ny === 1 ? x : x + nx;
+              const placeY = ny === 1 ? y + 1 : y + ny;
+              const placeZ = ny === 1 ? z : z + nz;
+
+              const targetCurrent = world.getBlock(placeX, placeY, placeZ);
+              if (targetCurrent === BlockType.AIR || targetCurrent === BlockType.WATER) {
+                const soilBlock = world.getBlock(placeX, placeY - 1, placeZ);
+                const isFarmland = soilBlock === BlockType.FARMLAND || soilBlock === BlockType.SAND_FARMLAND;
+
+                // Validate if soil is adequate for planting
+                if (!bundle.crop.needs.tilled || isFarmland) {
+                  world.setBlock(placeX, placeY, placeZ, bundle.sprout);
+                  soundManager.playStep('earth');
+                  soundManager.playChime(480);
+                  entityManager.addParticle(placeX + 0.5, placeY + 0.2, placeZ + 0.5, 0x84cc16, 10, 0.4);
+                  explorationSystem.stats.blocksPlaced++;
+
+                  const newHotbar = hotbar.map(s => ({ ...s }));
+                  if (newHotbar[selectedIndex].count > 1) {
+                    newHotbar[selectedIndex].count--;
+                  } else {
+                    newHotbar[selectedIndex].item = null;
+                    newHotbar[selectedIndex].count = 0;
+                  }
+                  this.callbacks.onUpdateHotbar(newHotbar);
+                  return;
+                }
+              }
+            }
           }
 
           // Right-click ground with a Hoe: Till the ground into Farmland / Sand Farmland!
@@ -1071,6 +1187,64 @@ export class InteractionHandler {
               };
             }
           }
+        }
+
+        // Check if breaking a crop block
+        if (isCropBlock(block)) {
+          let dropsResult;
+          if (block === CROP_BLOCK_IDS.WILD_SEA_CABBAGE) {
+            dropsResult = getWildSeaCabbageDrops();
+          } else {
+            const cropInfo = getCropInfo(block);
+            if (cropInfo) {
+              if (cropInfo.stage === 'mature') {
+                const soilBelow = world.getBlock(x, y - 1, z);
+                const isCultivated = soilBelow === BlockType.FARMLAND || soilBelow === BlockType.SAND_FARMLAND;
+                dropsResult = isCultivated
+                  ? getMatureCropDrops(cropInfo.crop.id)
+                  : getWildPlantDrops(cropInfo.crop.id);
+              } else if (cropInfo.stage === 'wilted') {
+                dropsResult = getWiltedPlantDrops(cropInfo.crop.id);
+              } else {
+                dropsResult = { items: [{ item: CROP_SEED_ITEMS[cropInfo.crop.id] || getItemForBlock(block), count: 1 }] };
+              }
+            } else {
+              dropsResult = { items: [{ item: getItemForBlock(block), count: 1 }] };
+            }
+          }
+
+          const droppedItemManager = this.callbacks.getDroppedItemManager?.();
+          for (const d of dropsResult.items) {
+            if (droppedItemManager) {
+              droppedItemManager.spawnItem(d.item, x + 0.5, y + 0.3, z + 0.5);
+            } else {
+              this.addItemToPlayer(d.item, d.count, updatedHotbar);
+            }
+          }
+
+          // If crop restores soil (Beans, Chickpeas), till soil below
+          const cropInfo = getCropInfo(block);
+          if (cropInfo && cropInfo.crop.needs.restoresSoil) {
+            world.setBlock(x, y - 1, z, BlockType.FARMLAND);
+          }
+          // If 2 blocks tall, break partner top/bottom
+          const aboveB = world.getBlock(x, y + 1, z);
+          if (aboveB === CROP_BLOCK_IDS.CORN_TOP || aboveB === CROP_BLOCK_IDS.SUGARCANE_TOP || aboveB === CROP_BLOCK_IDS.SUNFLOWER_TOP) {
+            world.setBlock(x, y + 1, z, BlockType.AIR);
+          }
+          const belowB = world.getBlock(x, y - 1, z);
+          if (isCropBlock(belowB)) {
+            world.setBlock(x, y - 1, z, BlockType.AIR);
+          }
+
+          world.setBlock(x, y, z, BlockType.AIR);
+          explorationSystem.stats.blocksMined++;
+          soundManager.playStep('foliage');
+          entityManager.addParticle(x + 0.5, y + 0.4, z + 0.5, 0x4ade80, 10, 0.5);
+          if (durabilityModified) {
+            this.callbacks.onUpdateHotbar(updatedHotbar);
+          }
+          return;
         }
 
         // Check if block drops according to tool requirements

@@ -43,7 +43,7 @@ const HORIZ_DIRS: [number, number][] = [
 ];
 
 // In-memory chunk cache on the worker thread
-const chunks: Map<string, Uint8Array> = new Map();
+const chunks: Map<string, Uint16Array> = new Map();
 
 // Active liquid update queue (coordinates requiring simulation tick)
 const activeQueue: Set<string> = new Set();
@@ -428,7 +428,7 @@ self.addEventListener('message', (e: MessageEvent) => {
     case 'loadChunk': {
       // Store chunk voxels in worker cache
       const key = getChunkKey(msg.cx, msg.cz);
-      chunks.set(key, new Uint8Array(msg.voxels));
+      chunks.set(key, new Uint16Array(msg.voxels));
       break;
     }
 

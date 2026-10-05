@@ -2,13 +2,14 @@ import * as THREE from 'three';
 import { BlockType } from '../../types';
 import { registerAllRemainingBlocks32 } from './RegisterBlocks32';
 import { generateWaterFrames } from './TextureGenerators32';
+import { registerAllCropTextures } from '../farming/CropTextures';
 
 // 32x32 pixels per block face. Procedural textures still use a 16-step
 // logical pixel grid and are scaled up for crisp compatibility.
 const TILE_SIZE = 32;
 const PATTERN_SIZE = 16;
 const ATLAS_COLS = 16;
-const ATLAS_ROWS = 48;
+const ATLAS_ROWS = 112;
 
 export const BLOCK_SIDE_DATA_URLS: Record<number, string> = {};
 const readyListeners = new Set<() => void>();
@@ -416,6 +417,9 @@ export class TextureAtlas {
       customDirtSide || new Uint8ClampedArray(32 * 32 * 4),
       customStoneTop || new Uint8ClampedArray(32 * 32 * 4)
     );
+
+    // Register all 54 crop stages, trellises, wild sea cabbage, and tall crop tops
+    registerAllCropTextures(registerBlock32);
   }
 
   public getUVs(blockId: BlockType): BlockUVs {

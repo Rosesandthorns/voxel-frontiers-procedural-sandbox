@@ -4,7 +4,7 @@ import { HUD } from './components/HUD';
 import { InventoryModal } from './components/InventoryModal';
 import { BestiaryModal } from './components/BestiaryModal';
 import { SettingsModal } from './components/SettingsModal';
-import { BiomeType, InventorySlot, Season, WorldSettings } from './types';
+import { BiomeType, BlockType, InventorySlot, Season, WorldSettings } from './types';
 import { BiomeParameters, VerdantSubBiomeDef } from './game/voxel/SubBiomeTypes';
 import { DEFAULT_WORLD_SETTINGS, createDefaultBackpack } from './game/config/gameDefaults';
 import { ExplorationSystem } from './game/systems/ExplorationSystem';
@@ -52,6 +52,7 @@ export default function App() {
   const [biomeParams, setBiomeParams] = useState<BiomeParameters | null>(null);
   const [coords, setCoords] = useState<{ x: number; y: number; z: number }>({ x: 8, y: 22, z: 8 });
   const [yaw, setYaw] = useState<number>(0);
+  const [targetedBlock, setTargetedBlock] = useState<{ x: number; y: number; z: number; block: BlockType } | null>(null);
 
   // Modals & Banners
   const [isInventoryOpen, setIsInventoryOpen] = useState<boolean>(false);
@@ -133,7 +134,8 @@ export default function App() {
     pos: { x: number; y: number; z: number },
     y: number,
     sBiome?: VerdantSubBiomeDef,
-    bParams?: BiomeParameters
+    bParams?: BiomeParameters,
+    tBlock?: { x: number; y: number; z: number; block: BlockType } | null
   ) => {
     setHealth(hp);
     setStamina(st);
@@ -142,6 +144,7 @@ export default function App() {
     setCurrentBiome(explorationSystem.currentBiome);
     if (sBiome) setCurrentSubBiome(sBiome);
     if (bParams) setBiomeParams(bParams);
+    if (tBlock !== undefined) setTargetedBlock(tBlock);
   }, [explorationSystem]);
 
   const handleOpenInventory = useCallback(() => {
@@ -209,6 +212,10 @@ export default function App() {
           miningProgress={miningProgress}
           isFlying={settings.enableFlight}
           isThirdPerson={settings.enableThirdPerson}
+          world={world}
+          seasonWeatherSystem={seasonWeatherSystem}
+          targetedBlock={targetedBlock}
+          onAdvanceCropTick={() => world?.cropGrowthManager.fastForwardTick()}
           onOpenInventory={() => {
             setActiveStation('inventory');
             setActiveStationCoords(null);

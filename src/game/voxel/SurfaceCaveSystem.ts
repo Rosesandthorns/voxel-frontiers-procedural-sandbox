@@ -382,7 +382,7 @@ export class SurfaceCaveSystem {
   public carveChunk(
     chunkOriginX: number,
     chunkOriginZ: number,
-    voxels: Uint8Array,
+    voxels: Uint16Array,
     getHeightAtCoord: (x: number, z: number) => number
   ) {
     const entrances = this.getEntrancesNearChunk(chunkOriginX, chunkOriginZ);

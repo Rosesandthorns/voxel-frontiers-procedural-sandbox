@@ -22,6 +22,8 @@ import { isWaterOrWaterlogged, isWaterloggedPlant } from './WaterFlora';
 import { TileMoistureSystem } from './TileMoistureSystem';
 import type { SeasonWeatherSystem } from '../environment/SeasonWeatherSystem';
 import { ThermalWorkstationManager } from '../environment/ThermalWorkstationManager';
+import { CropGrowthManager } from '../farming/CropGrowthManager';
+import { isCropBlock } from '../farming/CropBlocks';
 
 export { Chunk } from './Chunk';
 export { CHUNK_D, CHUNK_H, CHUNK_W, SEA_LEVEL } from './ChunkConstants';
@@ -100,15 +102,19 @@ export class VoxelWorld {
     this.fluidSimulation = new FluidSimulation(this);
     this.tileMoistureSystem = new TileMoistureSystem(this);
     this.thermalWorkstationManager = new ThermalWorkstationManager();
+    this.cropGrowthManager = new CropGrowthManager(this);
   }
 
   public thermalWorkstationManager: ThermalWorkstationManager;
+  public get thermalManager(): ThermalWorkstationManager { return this.thermalWorkstationManager; }
+  public cropGrowthManager: CropGrowthManager;
 
   public update(delta: number) {
     this.atlas.updateWater(delta);
     this.fluidSimulation.update(delta);
     const isRaining = this.seasonWeatherSystem ? this.seasonWeatherSystem.isRaining() : false;
     this.tileMoistureSystem.update(delta, isRaining);
+    this.cropGrowthManager.update(delta);
     this._pumpMeshQueue();
     this._drainCompletedMeshes(3);
   }
@@ -200,6 +206,13 @@ export class VoxelWorld {
     }
     if (prevBlock === BlockType.HEATER || prevBlock === BlockType.COOLER) {
       this.thermalWorkstationManager.removeStation(wx, wy, wz);
+    }
+
+    // Notify CropGrowthManager if crop placed / changed / broken
+    if (isCropBlock(type)) {
+      this.cropGrowthManager.registerPlant(wx, wy, wz, type);
+    } else if (isCropBlock(prevBlock)) {
+      this.cropGrowthManager.unregisterPlant(wx, wy, wz);
     }
 
     // Propagate fluid dynamics at a fast but not instant rate if water or adjacent to water
@@ -722,7 +735,7 @@ export class VoxelWorld {
       chunk.waterMesh = null;
     }
     // Clear voxel array to free memory
-    chunk.voxels = new Uint8Array(0);
+    chunk.voxels = new Uint16Array(0);
   }
 
   private _enforceChunkLimit(maxDistSq: number) {

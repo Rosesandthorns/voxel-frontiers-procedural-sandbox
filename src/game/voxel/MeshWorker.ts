@@ -26,15 +26,15 @@ interface MeshRequest {
   id: number;
   cx: number;
   cz: number;
-  voxels: Uint8Array;
+  voxels: Uint16Array;
   waterValues?: Uint8Array;
   maxY: number;
   isSicklyWater: boolean;
   // Neighbor chunk data for seamless borders
-  neighborNegX?: Uint8Array;
-  neighborPosX?: Uint8Array;
-  neighborNegZ?: Uint8Array;
-  neighborPosZ?: Uint8Array;
+  neighborNegX?: Uint16Array;
+  neighborPosX?: Uint16Array;
+  neighborNegZ?: Uint16Array;
+  neighborPosZ?: Uint16Array;
 }
 
 interface MeshResult {
@@ -84,11 +84,11 @@ function computeAO(side1: boolean, side2: boolean, corner: boolean): number {
 
 function getBlockType(
   x: number, y: number, z: number,
-  voxels: Uint8Array,
-  neighborNegX?: Uint8Array,
-  neighborPosX?: Uint8Array,
-  neighborNegZ?: Uint8Array,
-  neighborPosZ?: Uint8Array
+  voxels: Uint16Array,
+  neighborNegX?: Uint16Array,
+  neighborPosX?: Uint16Array,
+  neighborNegZ?: Uint16Array,
+  neighborPosZ?: Uint16Array
 ): BlockType {
   if (y < 0 || y >= CHUNK_H) return BlockType.AIR;
   if (x >= 0 && x < CHUNK_W && z >= 0 && z < CHUNK_D) {
@@ -112,10 +112,10 @@ function getBlockType(
 function isMissingHorizontalNeighbor(
   x: number,
   z: number,
-  neighborNegX?: Uint8Array,
-  neighborPosX?: Uint8Array,
-  neighborNegZ?: Uint8Array,
-  neighborPosZ?: Uint8Array
+  neighborNegX?: Uint16Array,
+  neighborPosX?: Uint16Array,
+  neighborNegZ?: Uint16Array,
+  neighborPosZ?: Uint16Array
 ): boolean {
   if (x < 0 && z >= 0 && z < CHUNK_D) return !neighborNegX;
   if (x >= CHUNK_W && z >= 0 && z < CHUNK_D) return !neighborPosX;
@@ -128,11 +128,11 @@ function getFluidHeight(
   bx: number,
   by: number,
   bz: number,
-  voxels: Uint8Array,
-  nbNegX?: Uint8Array,
-  nbPosX?: Uint8Array,
-  nbNegZ?: Uint8Array,
-  nbPosZ?: Uint8Array
+  voxels: Uint16Array,
+  nbNegX?: Uint16Array,
+  nbPosX?: Uint16Array,
+  nbNegZ?: Uint16Array,
+  nbPosZ?: Uint16Array
 ): number {
   const above = getBlockType(bx, by + 1, bz, voxels, nbNegX, nbPosX, nbNegZ, nbPosZ);
   if (isWaterBlock(above)) return 1.0;
@@ -149,11 +149,11 @@ function getWaterCornerHeight(
   x: number,
   y: number,
   z: number,
-  voxels: Uint8Array,
-  nbNegX?: Uint8Array,
-  nbPosX?: Uint8Array,
-  nbNegZ?: Uint8Array,
-  nbPosZ?: Uint8Array
+  voxels: Uint16Array,
+  nbNegX?: Uint16Array,
+  nbPosX?: Uint16Array,
+  nbNegZ?: Uint16Array,
+  nbPosZ?: Uint16Array
 ): number {
   let maxH = 0;
   let hasWaterAbove = false;

@@ -1,6 +1,6 @@
 {
-  "name": "Voxel Frontiers: Procedural Sandbox",
-  "description": "An open world infinite procedural voxel sandbox game featuring diverse biomes, exploration relics, deep caves, weather and season systems, temperature control workstations (heater & cooler), insulated everfrost doors, and tons of interactive mechanics.",
+  "name": "",
+  "description": "",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

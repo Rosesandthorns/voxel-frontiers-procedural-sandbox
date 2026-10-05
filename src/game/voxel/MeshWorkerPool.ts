@@ -28,14 +28,14 @@ interface PendingMeshRequest {
   id: number;
   cx: number;
   cz: number;
-  voxels: Uint8Array;
+  voxels: Uint16Array;
   waterValues?: Uint8Array;
   maxY: number;
   isSicklyWater: boolean;
-  neighborNegX?: Uint8Array;
-  neighborPosX?: Uint8Array;
-  neighborNegZ?: Uint8Array;
-  neighborPosZ?: Uint8Array;
+  neighborNegX?: Uint16Array;
+  neighborPosX?: Uint16Array;
+  neighborNegZ?: Uint16Array;
+  neighborPosZ?: Uint16Array;
   resolve: (result: MeshResult) => void;
 }
 
@@ -70,13 +70,13 @@ export class MeshWorkerPool {
   public request(
     cx: number,
     cz: number,
-    voxels: Uint8Array,
+    voxels: Uint16Array,
     maxY: number,
     isSicklyWater: boolean,
-    neighborNegX?: Uint8Array,
-    neighborPosX?: Uint8Array,
-    neighborNegZ?: Uint8Array,
-    neighborPosZ?: Uint8Array,
+    neighborNegX?: Uint16Array,
+    neighborPosX?: Uint16Array,
+    neighborNegZ?: Uint16Array,
+    neighborPosZ?: Uint16Array,
     waterValues?: Uint8Array
   ): Promise<MeshResult> {
     return new Promise((resolve) => {

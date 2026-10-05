@@ -1514,6 +1514,7 @@ export function isLeavesBlock(type: BlockType): boolean {
 }
 
 export function isPlantBlock(type: BlockType): boolean {
+  if (type >= 201 && type <= 450) return true;
   switch (type) {
     case BlockType.JADELEAF_FERN:
     case BlockType.SUNFLOWER:

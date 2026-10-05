@@ -1,6 +1,15 @@
 import { BlockType, InventorySlot, ItemDef } from '../../types';
 import { BLOCK_DEFS, isFlintBlock, isDoorBlock, getDoorItemKey } from '../voxel/Blocks';
 import { getBlockSideTexture } from '../voxel/TextureAtlas';
+import { getCropInfo, CROP_BLOCK_IDS } from '../farming/CropBlocks';
+import {
+  getCropSeedIcon,
+  getCropFoodIcon,
+  CROP_SEED_ITEMS,
+  CROP_FOOD_ITEMS,
+  CROP_ITEMS_MAP,
+  CROP_FARMING_RECIPES
+} from '../farming/CropItems';
 
 export interface CraftingIngredient {
   itemId: string; // Specific item id or 'any_plank' / 'any_wood'
@@ -1476,6 +1485,7 @@ export const ITEM_REGISTRY: Record<string, ItemDef> = {
     maxStack: 16
   }
 };
+Object.assign(ITEM_REGISTRY, CROP_ITEMS_MAP);
 
 /**
  * Returns the active icon for an item.
@@ -1500,6 +1510,17 @@ export function getItemIcon(item: ItemDef | null | undefined): string {
   if (item.id === 'empty_bucket') return '/ItemSprites/EmptyBucket.png';
   if (item.id === 'chalk') return '/ItemSprites/Chalk.png';
   if (item.id === 'flint') return '/ItemSprites/Flint.png';
+
+  // Crop seeds & produce dynamic icons
+  if (item.id.endsWith('_seed')) {
+    const cropId = item.id.replace('_seed', '');
+    const seedIcon = getCropSeedIcon(cropId);
+    if (seedIcon) return seedIcon;
+  }
+  if (item.type === 'food') {
+    const foodIcon = getCropFoodIcon(item.id);
+    if (foodIcon) return foodIcon;
+  }
 
   // Registered item lookup
   if (item.id && ITEM_REGISTRY[item.id]?.icon && isImageStr(ITEM_REGISTRY[item.id].icon)) {
@@ -1532,6 +1553,19 @@ export function getItemForBlock(block: BlockType): ItemDef {
     const doorKey = getDoorItemKey(block);
     if (ITEM_REGISTRY[doorKey]) return ITEM_REGISTRY[doorKey];
   }
+  if (block === CROP_BLOCK_IDS.TRELLIS) {
+    return ITEM_REGISTRY['trellis'] || { id: 'trellis', name: 'Garden Trellis', type: 'block', blockId: block, icon: '', description: 'Trellis', maxStack: 64 };
+  }
+  if (block === CROP_BLOCK_IDS.WILD_SEA_CABBAGE) {
+    return ITEM_REGISTRY['cabbage_seed'] || CROP_SEED_ITEMS['cabbage'];
+  }
+  const cropInfo = getCropInfo(block);
+  if (cropInfo) {
+    if (cropInfo.stage === 'mature') {
+      return ITEM_REGISTRY[cropInfo.crop.id] || CROP_FOOD_ITEMS[cropInfo.crop.id];
+    }
+    return ITEM_REGISTRY[`${cropInfo.crop.id}_seed`] || CROP_SEED_ITEMS[cropInfo.crop.id];
+  }
   // Find registered item with matching blockId
   for (const item of Object.values(ITEM_REGISTRY)) {
     if (item.blockId === block) return item;
@@ -1554,6 +1588,7 @@ export function getItemForBlock(block: BlockType): ItemDef {
 
 // 1. Inventory Crafter Recipes (1 Log = 1 Plank, 4 Planks = Tool Crafter)
 export const INVENTORY_CRAFTING_RECIPES: CraftingRecipe[] = [
+  ...CROP_FARMING_RECIPES,
   // Planks from individual logs (1 log = 1 plank)
   {
     id: 'craft_redwood_plank',

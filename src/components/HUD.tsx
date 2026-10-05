@@ -1,7 +1,27 @@
 import React from 'react';
-import { InventorySlot } from '../types';
-import { Sparkles, Heart, Zap } from 'lucide-react';
+import { InventorySlot, Season } from '../types';
+import {
+  Sparkles,
+  Heart,
+  Zap,
+  Sprout,
+  Clock,
+  Droplets,
+  Thermometer,
+  AlertTriangle,
+  CheckCircle2,
+  FastForward,
+  Layers,
+  Sun,
+  CloudRain,
+  Snowflake,
+  Wind
+} from 'lucide-react';
 import { ItemIcon } from './ItemIcon';
+import { isCropBlock, getCropInfo, CROP_BLOCK_IDS } from '../game/farming/CropBlocks';
+import type { VoxelWorld } from '../game/voxel/VoxelWorld';
+import type { SeasonWeatherSystem } from '../game/environment/SeasonWeatherSystem';
+import { BlockType } from '../types';
 
 interface HUDProps {
   health?: number;
@@ -20,6 +40,10 @@ interface HUDProps {
   miningProgress?: number;
   isFlying?: boolean;
   isThirdPerson?: boolean;
+  world?: VoxelWorld | null;
+  seasonWeatherSystem?: SeasonWeatherSystem;
+  targetedBlock?: { x: number; y: number; z: number; block: BlockType } | null;
+  onAdvanceCropTick?: () => void;
   onOpenInventory?: () => void;
   onOpenBestiary?: () => void;
   onOpenSettings?: () => void;
@@ -30,17 +54,65 @@ export const HUD: React.FC<HUDProps> = ({
   maxHealth = 20,
   stamina = 100,
   maxStamina = 100,
+  biome,
+  subBiome,
+  coords,
   hotbar,
   selectedHotbarIndex,
   onSelectHotbar,
   discoveryBanner,
-  miningProgress = 0
+  miningProgress = 0,
+  world,
+  seasonWeatherSystem,
+  targetedBlock,
+  onAdvanceCropTick
 }) => {
+  const [tickTime, setTickTime] = React.useState<number>(180);
+  const [plantCount, setPlantCount] = React.useState<number>(0);
+
+  React.useEffect(() => {
+    const timer = window.setInterval(() => {
+      if (world?.cropGrowthManager) {
+        setTickTime(Math.max(0, Math.ceil(world.cropGrowthManager.timeUntilNextTick)));
+        setPlantCount(world.cropGrowthManager.getTrackedPlantCount());
+      }
+    }, 500);
+    return () => window.clearInterval(timer);
+  }, [world]);
+
+  const tickM = Math.floor(tickTime / 60);
+  const tickS = tickTime % 60;
+  const formattedTickTime = `${tickM}:${tickS < 10 ? '0' : ''}${tickS}`;
+
+  // Evaluate targeted crop
+  const isTargetingCrop = targetedBlock ? isCropBlock(targetedBlock.block) : false;
+  const cropInfo = targetedBlock ? getCropInfo(targetedBlock.block) : null;
+  const isWildSeaCabbage = targetedBlock?.block === CROP_BLOCK_IDS.WILD_SEA_CABBAGE;
+  const env = (cropInfo && world && targetedBlock)
+    ? world.cropGrowthManager.evaluateEnvironment(targetedBlock.x, targetedBlock.y, targetedBlock.z, cropInfo.crop)
+    : null;
+
+  const currentSeason = seasonWeatherSystem?.season ?? Season.SPRING;
+  const dayInSeason = seasonWeatherSystem?.dayInSeason ?? 1;
+
+  const getSeasonIcon = () => {
+    switch (currentSeason) {
+      case Season.SPRING:
+        return <Sprout className="w-3.5 h-3.5 text-emerald-400" />;
+      case Season.SUMMER:
+        return <Sun className="w-3.5 h-3.5 text-amber-400" />;
+      case Season.AUTUMN:
+        return <Wind className="w-3.5 h-3.5 text-orange-400" />;
+      case Season.WINTER:
+        return <Snowflake className="w-3.5 h-3.5 text-cyan-300" />;
+    }
+  };
+
   return (
     <div className="pointer-events-none absolute inset-0 select-none overflow-hidden font-sans text-white">
-      {/* 1. Discovery Celebration Banner */}
+      {/* 3. Discovery Celebration Banner */}
       {discoveryBanner && (
-        <div className="animate-in fade-in slide-in-from-top-4 duration-500 absolute top-6 left-1/2 -translate-x-1/2 transform">
+        <div className="animate-in fade-in slide-in-from-top-4 duration-500 absolute top-16 left-1/2 -translate-x-1/2 transform">
           <div className="flex items-center gap-3 rounded-xl border border-amber-400/40 bg-zinc-950/85 px-6 py-3 shadow-2xl backdrop-blur-md">
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-500/20 text-amber-400">
               <Sparkles className="h-6 w-6" />
@@ -57,7 +129,9 @@ export const HUD: React.FC<HUDProps> = ({
         </div>
       )}
 
-      {/* 2. Crosshair & Circular Mining Reticle */}
+      {/* 4. Targeted Crop / Wild Plant Status HUD Card (Removed per user request) */}
+
+      {/* 5. Crosshair & Circular Mining Reticle */}
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
         <div className="relative flex items-center justify-center">
           <div className="h-4 w-0.5 bg-white/70 shadow-sm" />
@@ -93,7 +167,7 @@ export const HUD: React.FC<HUDProps> = ({
         </div>
       </div>
 
-      {/* 3. Bottom Center: Player Vitals & Hotbar */}
+      {/* 6. Bottom Center: Player Vitals & Hotbar */}
       <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2">
         {/* Vitals Bar (Health & Stamina) */}
         <div className="flex items-center gap-4 border-2 border-stone-800 bg-stone-950/90 px-4 py-1.5 shadow-lg font-mono">

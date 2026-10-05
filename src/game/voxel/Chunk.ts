@@ -16,7 +16,7 @@ export interface SurfaceMoistureTile {
 export class Chunk {
   public cx: number;
   public cz: number;
-  public voxels: Uint8Array;
+  public voxels: Uint16Array;
   public waterValues: Uint8Array;
   public hasWater: boolean = false;
   // Compact flat array of surface water coords & potentials: [lx, ly, lz, pot, ...]
@@ -38,7 +38,7 @@ export class Chunk {
     this.biome = biome;
     this.subBiomeName = subBiomeName;
     this.subBiomeId = subBiomeId;
-    this.voxels = new Uint8Array(CHUNK_W * CHUNK_H * CHUNK_D);
+    this.voxels = new Uint16Array(CHUNK_W * CHUNK_H * CHUNK_D);
     this.waterValues = new Uint8Array(CHUNK_W * CHUNK_H * CHUNK_D);
   }
 

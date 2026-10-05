@@ -17,7 +17,7 @@ import { BiomeType } from '../../types';
 export interface WorkerChunkResult {
   cx: number;
   cz: number;
-  voxels: Uint8Array;
+  voxels: Uint16Array;
   maxY: number;
   biome: BiomeType;
   subBiomeName: string;

@@ -8,6 +8,7 @@ import { resolveVerdantSubBiome, SUB_BIOME_REGISTRY } from './SubBiomeRegistry';
 import { BiomeParameters, VerdantSubBiomeDef } from './SubBiomeTypes';
 import { SurfaceCaveSystem } from './SurfaceCaveSystem';
 import { RiverSystem } from '../world/RiverSystem';
+import { getWildCropAt } from '../farming/WildCropSpawner';
 
 function hash2(x: number, z: number, seed: number): number {
   let h = Math.imul(x ^ 0x45d9f3b, 0x119de1f3) ^ Math.imul(z ^ 0x3b246a1, 0x27d4eb2d) ^ Math.imul(seed, 0x1b56c4e9);
@@ -1166,6 +1167,14 @@ export class WorldGenerator {
         return BlockType.AIR;
       }
       return BlockType.AIR;
+    }
+
+    // 0. Wild Crop Variant Generation
+    const params = this.getBiomeParameters(wx, wz);
+    const surfaceBlock = subBiome.surfaceBlock || BlockType.GRASS;
+    const wildCrop = getWildCropAt(wx, surfaceY, wz, subBiome, params, surfaceBlock);
+    if (wildCrop !== null) {
+      return wildCrop;
     }
 
     // 1. Decayed Biomes (Decayed Forest, Decayed Fields)

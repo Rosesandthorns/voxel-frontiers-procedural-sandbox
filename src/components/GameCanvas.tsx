@@ -37,7 +37,8 @@ interface GameCanvasProps {
     coords: { x: number; y: number; z: number },
     yaw: number,
     subBiome?: VerdantSubBiomeDef,
-    biomeParams?: BiomeParameters
+    biomeParams?: BiomeParameters,
+    targetedBlock?: { x: number; y: number; z: number; block: BlockType } | null
   ) => void;
   onTargetedEntityUpdate?: (ent: any) => void;
   onDiscoveryBanner: (banner: { title: string; subtitle: string } | null) => void;
@@ -461,7 +462,13 @@ const GameCanvasComponent: React.FC<GameCanvasProps> = ({
             { x: player.pos.x, y: player.pos.y, z: player.pos.z },
             player.yaw,
             cachedSubBiome ?? undefined,
-            cachedBiomeParams ?? undefined
+            cachedBiomeParams ?? undefined,
+            (player.targetedBlock && player.targetedBlock.hit) ? {
+              x: player.targetedBlock.x,
+              y: player.targetedBlock.y,
+              z: player.targetedBlock.z,
+              block: player.targetedBlock.block
+            } : null
           );
         }
 

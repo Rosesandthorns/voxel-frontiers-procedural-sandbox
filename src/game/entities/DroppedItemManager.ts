@@ -141,7 +141,8 @@ export class DroppedItemManager {
 
     const material = new THREE.MeshLambertMaterial({
       map: this.atlas.texture,
-      transparent: true
+      transparent: true,
+      alphaTest: 0.5
     });
 
     const mesh = new THREE.Mesh(geometry, material);
