@@ -53,8 +53,14 @@ import {
   generateFarmlandTop32,
   generateFarmlandSide32,
   generateSandFarmlandTop32,
-  generateSandFarmlandSide32
+  generateSandFarmlandSide32,
+  generateHeaterTop32,
+  generateHeaterSide32,
+  generateCoolerTop32,
+  generateCoolerSide32,
+  generateDoor32
 } from './TextureGenerators32';
+import { WOOD_DOOR_INFOS } from './Blocks';
 
 export type RegisterBlock32Fn = (
   id: BlockType,
@@ -565,4 +571,42 @@ export function registerAllRemainingBlocks32(
   const sandFarmlandTop = generateSandFarmlandTop32();
   const sandFarmlandSide = generateSandFarmlandSide32(sand);
   registerBlock32(BlockType.SAND_FARMLAND, sandFarmlandTop, sandFarmlandSide, sand);
+
+  // Workstation: Heater
+  const heaterTop = generateHeaterTop32();
+  const heaterSide = generateHeaterSide32();
+  registerBlock32(BlockType.HEATER, heaterTop, heaterSide, customStoneTop);
+
+  // Workstation: Cooler
+  const coolerTop = generateCoolerTop32();
+  const coolerSide = generateCoolerSide32();
+  registerBlock32(BlockType.COOLER, coolerTop, coolerSide, customStoneTop);
+
+  // Wooden Doors (Bottom & Top, Closed & Open)
+  const plankColorMap: Record<string, [number, number, number]> = {
+    Oak: [184, 148, 95],
+    Redwood: [147, 75, 53],
+    Willow: [155, 179, 108],
+    Everfrost: [163, 194, 207],
+    Palm: [207, 181, 122],
+    Ghost: [214, 219, 224],
+    'Rainforest Oak': [109, 117, 75],
+    Kapok: [196, 173, 141],
+    Banyan: [139, 105, 75],
+    Strangler: [110, 79, 58],
+    Mahogany: [122, 59, 46],
+    Ceiba: [138, 122, 95]
+  };
+
+  for (const d of WOOD_DOOR_INFOS) {
+    const col = plankColorMap[d.woodName] || [184, 148, 95];
+    const topDoor = generateDoor32(col, true, !!d.isInsulated);
+    const btmDoor = generateDoor32(col, false, !!d.isInsulated);
+
+    registerBlock32(d.top, topDoor, topDoor);
+    registerBlock32(d.bottom, btmDoor, btmDoor);
+    registerBlock32(d.topOpen, topDoor, topDoor);
+    registerBlock32(d.bottomOpen, btmDoor, btmDoor);
+  }
 }
+

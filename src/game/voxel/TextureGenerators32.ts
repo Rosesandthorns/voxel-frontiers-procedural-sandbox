@@ -3096,3 +3096,290 @@ export function generateSandFarmlandSide32(sandBuf: Uint8ClampedArray): Uint8Cla
   return buf;
 }
 
+// ── HEATER WORKSTATION TEXTURES ──
+
+export function generateHeaterTop32(): Uint8ClampedArray {
+  const buf = new Uint8ClampedArray(32 * 32 * 4);
+  for (let y = 0; y < 32; y++) {
+    for (let x = 0; x < 32; x++) {
+      const n = (smoothNoise(x, y, 4, 801) - 0.5) * 16;
+      const isBorder = x < 3 || x >= 29 || y < 3 || y >= 29;
+      const isCornerBolt =
+        ((x === 2 || x === 29) && (y === 2 || y === 29));
+
+      // Central thermal vent grille (x: 5..26, y: 5..26)
+      const inVent = x >= 5 && x <= 26 && y >= 5 && y <= 26;
+      const isVentSlat = inVent && (y % 3 === 0);
+
+      if (isCornerBolt) {
+        setPx(buf, x, y, 220, 180, 110, 255); // Polished brass rivet
+      } else if (isBorder) {
+        // Heavy bronze/copper frame
+        const r = Math.min(255, Math.max(0, 140 + n));
+        const g = Math.min(255, Math.max(0, 85 + n * 0.7));
+        const b = Math.min(255, Math.max(0, 45 + n * 0.5));
+        setPx(buf, x, y, r, g, b, 255);
+      } else if (isVentSlat) {
+        // Dark iron grille louvers
+        setPx(buf, x, y, 55, 45, 40, 255);
+      } else if (inVent) {
+        // Glowing heating coil under the slat
+        const pulse = Math.sin((x + y) * 0.6) * 20;
+        setPx(buf, x, y, Math.min(255, 235 + pulse), Math.min(255, 110 + pulse * 0.8), 25, 255);
+      } else {
+        // Inner bronze bezel
+        setPx(buf, x, y, 110, 65, 35, 255);
+      }
+    }
+  }
+  return buf;
+}
+
+export function generateHeaterSide32(): Uint8ClampedArray {
+  const buf = new Uint8ClampedArray(32 * 32 * 4);
+  for (let y = 0; y < 32; y++) {
+    for (let x = 0; x < 32; x++) {
+      const n = (smoothNoise(x, y, 4, 815) - 0.5) * 18;
+      const isOuterBorder = x < 3 || x >= 29 || y < 3 || y >= 29;
+      const isRivet =
+        ((x === 2 || x === 29) && (y === 2 || y === 15 || y === 29)) ||
+        ((y === 2 || y === 29) && (x === 15));
+
+      // Radiator core grille (x: 6..25, y: 7..24)
+      const inRadiator = x >= 6 && x <= 25 && y >= 7 && y <= 24;
+      const isCoil = inRadiator && (x % 4 === 1 || x % 4 === 2);
+
+      // Temperature dial at top center (x: 13..18, y: 3..5)
+      const isDial = x >= 14 && x <= 17 && y >= 3 && y <= 5;
+
+      if (isRivet) {
+        setPx(buf, x, y, 235, 195, 120, 255); // Polished brass rivet
+      } else if (isDial) {
+        // Glowing analog indicator
+        setPx(buf, x, y, 255, 180, 50, 255);
+      } else if (isOuterBorder) {
+        // Sturdy riveted copper/bronze chassis
+        const r = Math.min(255, Math.max(0, 150 + n));
+        const g = Math.min(255, Math.max(0, 90 + n * 0.7));
+        const b = Math.min(255, Math.max(0, 48 + n * 0.5));
+        setPx(buf, x, y, r, g, b, 255);
+      } else if (isCoil) {
+        // Glowing thermal coil
+        const coilY = (y - 7) / 17;
+        const heat = Math.sin(coilY * Math.PI) * 40;
+        setPx(buf, x, y, 255, Math.min(255, 120 + heat), Math.min(255, 30 + heat * 0.5), 255);
+      } else if (inRadiator) {
+        // Dark protective heater recess mesh
+        setPx(buf, x, y, 42, 32, 28, 255);
+      } else {
+        // Base copper casing
+        setPx(buf, x, y, 120, 72, 40, 255);
+      }
+    }
+  }
+  return buf;
+}
+
+// ── COOLER WORKSTATION TEXTURES ──
+
+export function generateCoolerTop32(): Uint8ClampedArray {
+  const buf = new Uint8ClampedArray(32 * 32 * 4);
+  for (let y = 0; y < 32; y++) {
+    for (let x = 0; x < 32; x++) {
+      const n = (smoothNoise(x, y, 4, 833) - 0.5) * 15;
+      const isBorder = x < 3 || x >= 29 || y < 3 || y >= 29;
+      const isCornerBolt =
+        ((x === 2 || x === 29) && (y === 2 || y === 29));
+
+      const dx = x - 15.5;
+      const dy = y - 15.5;
+      const dist = Math.hypot(dx, dy);
+
+      // Circular cooling turbine intake fan (center dist < 11)
+      if (isCornerBolt) {
+        setPx(buf, x, y, 190, 220, 245, 255); // Frosted steel bolt
+      } else if (isBorder) {
+        // Industrial cool-grey steel chassis
+        const val = Math.min(255, Math.max(0, 140 + n));
+        setPx(buf, x, y, val - 10, val + 5, val + 20, 255);
+      } else if (dist < 3.5) {
+        // Center fan hub
+        setPx(buf, x, y, 70, 95, 120, 255);
+      } else if (dist < 11.0) {
+        // Fan blade angle
+        const angle = Math.atan2(dy, dx);
+        const blade = (Math.sin(angle * 6) + 1) * 0.5;
+        if (blade > 0.45) {
+          // Cold steel fan blade
+          setPx(buf, x, y, 120, 160, 200, 255);
+        } else {
+          // Dark cryo turbine intake cavity
+          setPx(buf, x, y, 20, 35, 55, 255);
+        }
+      } else {
+        // Outer fan shroud with subtle frost frost-sparkle
+        const frost = (hash(x, y, 77) > 0.8) ? 40 : 0;
+        setPx(buf, x, y, 100 + frost, 135 + frost, 170 + frost, 255);
+      }
+    }
+  }
+  return buf;
+}
+
+export function generateCoolerSide32(): Uint8ClampedArray {
+  const buf = new Uint8ClampedArray(32 * 32 * 4);
+  for (let y = 0; y < 32; y++) {
+    for (let x = 0; x < 32; x++) {
+      const n = (smoothNoise(x, y, 4, 847) - 0.5) * 16;
+      const isBorder = x < 3 || x >= 29 || y < 3 || y >= 29;
+      const isRivet =
+        ((x === 2 || x === 29) && (y === 2 || y === 15 || y === 29)) ||
+        ((y === 2 || y === 29) && (x === 15));
+
+      // Cryo condenser coils (x: 6..25, y: 8..23)
+      const inCondenser = x >= 6 && x <= 25 && y >= 8 && y <= 23;
+      const isPipe = inCondenser && (y % 4 === 1 || y % 4 === 2);
+
+      // Cryo indicator dial (x: 13..18, y: 3..5)
+      const isIndicator = x >= 14 && x <= 17 && y >= 3 && y <= 5;
+
+      if (isRivet) {
+        setPx(buf, x, y, 195, 230, 255, 255);
+      } else if (isIndicator) {
+        // Cold cyan LED status
+        setPx(buf, x, y, 80, 220, 255, 255);
+      } else if (isBorder) {
+        // Frosted steel casing
+        const base = Math.min(255, Math.max(0, 135 + n));
+        setPx(buf, x, y, base - 15, base + 5, base + 25, 255);
+      } else if (isPipe) {
+        // Cryogenic liquid coolant piping (glowing frosty cyan-blue)
+        const shine = (x % 3 === 0) ? 35 : 0;
+        setPx(buf, x, y, 60 + shine, 180 + shine, 240 + shine, 255);
+      } else if (inCondenser) {
+        // Deep cryo cooling chamber background
+        setPx(buf, x, y, 18, 30, 48, 255);
+      } else {
+        // Inner frosted plate
+        setPx(buf, x, y, 95, 125, 155, 255);
+      }
+    }
+  }
+  return buf;
+}
+
+// ── 32x32 WOODEN DOOR TEXTURES ──
+
+export function generateDoor32(
+  woodColor: [number, number, number],
+  isTop: boolean,
+  isInsulated: boolean = false
+): Uint8ClampedArray {
+  const buf = new Uint8ClampedArray(32 * 32 * 4);
+  const [br, bg, bb] = woodColor;
+
+  for (let y = 0; y < 32; y++) {
+    for (let x = 0; x < 32; x++) {
+      const n = (smoothNoise(x, y, 4, isTop ? 911 : 922) - 0.5) * 16;
+      const isPerimeter = x < 3 || x >= 29 || y < 3 || y >= 29;
+
+      // Hinge positions on left edge
+      const isHinge =
+        x <= 3 && ((isTop && y >= 5 && y <= 9) || (!isTop && y >= 22 && y <= 26));
+
+      // Door handle / latch on right side (bottom door, y: 13..17, x: 23..26)
+      const isHandle =
+        !isTop && x >= 23 && x <= 26 && y >= 13 && y <= 17;
+      const isKeyhole =
+        !isTop && x >= 24 && x <= 25 && y === 16;
+
+      // Inner panel boundary (x: 5..26, y: 5..26)
+      const inPanel = x >= 5 && x <= 26 && y >= 5 && y <= 26;
+      const isPanelBevel =
+        inPanel && (x === 5 || x === 26 || y === 5 || y === 26);
+
+      // Window / reinforced view-slit for top half of doors
+      const isWindow =
+        isTop && x >= 9 && x <= 22 && y >= 8 && y <= 21;
+      const isWindowBevel =
+        isTop && inPanel && (x === 8 || x === 23 || y === 7 || y === 22);
+
+      if (isHinge) {
+        // Metal hinge (iron or insulated titanium)
+        const hingeVal = isInsulated ? 210 : 80;
+        setPx(buf, x, y, hingeVal, hingeVal + 10, hingeVal + 20, 255);
+      } else if (isHandle) {
+        if (isKeyhole) {
+          setPx(buf, x, y, 20, 20, 20, 255);
+        } else {
+          // Brass/iron handle
+          if (isInsulated) {
+            setPx(buf, x, y, 220, 235, 250, 255); // Heavy cryo latch
+          } else {
+            setPx(buf, x, y, 215, 175, 75, 255); // Polished brass handle
+          }
+        }
+      } else if (isInsulated && isPerimeter) {
+        // Insulated Everfrost Door: Thick thermal silicone gasket seal border!
+        const sealVal = (y === 0 || y === 31 || x === 0 || x === 31) ? 45 : 75;
+        setPx(buf, x, y, sealVal - 10, sealVal + 15, sealVal + 35, 255);
+      } else if (isInsulated && (y === 3 || y === 28 || x === 3 || x === 28)) {
+        // Insulated thermal compression frame with rivets
+        const isRivet = (x % 7 === 3) || (y % 7 === 3);
+        if (isRivet) {
+          setPx(buf, x, y, 230, 245, 255, 255); // Thermal bolt
+        } else {
+          setPx(buf, x, y, 110, 145, 175, 255); // Reinforced alloy frame
+        }
+      } else if (isWindow) {
+        if (isInsulated) {
+          // Double-glazed insulated cryo viewport with internal frost lattice
+          const diag = (x + y) % 4 === 0;
+          if (diag) {
+            setPx(buf, x, y, 210, 240, 255, 230); // Frosted reflection
+          } else {
+            setPx(buf, x, y, 130, 185, 225, 210); // Translucent cryo glass
+          }
+        } else {
+          // Classical wooden mullion or tinted viewing pane
+          const isMullion = (x === 15 || x === 16 || y === 14 || y === 15);
+          if (isMullion) {
+            setPx(buf, x, y, br * 0.8, bg * 0.8, bb * 0.8, 255);
+          } else {
+            setPx(buf, x, y, 70, 85, 100, 200);
+          }
+        }
+      } else if (isWindowBevel) {
+        setPx(buf, x, y, Math.round(br * 0.65), Math.round(bg * 0.65), Math.round(bb * 0.65), 255);
+      } else if (isPanelBevel) {
+        // Molded chamfer around panel
+        const bevelShade = (x === 5 || y === 5) ? 0.72 : 1.15;
+        setPx(
+          buf,
+          x,
+          y,
+          Math.min(255, Math.round(br * bevelShade)),
+          Math.min(255, Math.round(bg * bevelShade)),
+          Math.min(255, Math.round(bb * bevelShade)),
+          255
+        );
+      } else if (inPanel) {
+        // Recessed panel with subtle vertical wood grain
+        const grain = (hash(x, y * 2, 53) - 0.5) * 12;
+        const panelR = Math.min(255, Math.max(0, br * 0.9 + grain));
+        const panelG = Math.min(255, Math.max(0, bg * 0.9 + grain * 0.9));
+        const panelB = Math.min(255, Math.max(0, bb * 0.9 + grain * 0.8));
+        setPx(buf, x, y, panelR, panelG, panelB, 255);
+      } else {
+        // Outer door stile & rail framing
+        const frameR = Math.min(255, Math.max(0, br + n));
+        const frameG = Math.min(255, Math.max(0, bg + n * 0.9));
+        const frameB = Math.min(255, Math.max(0, bb + n * 0.8));
+        setPx(buf, x, y, frameR, frameG, frameB, 255);
+      }
+    }
+  }
+  return buf;
+}
+
+

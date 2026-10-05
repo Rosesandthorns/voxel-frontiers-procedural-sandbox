@@ -6,11 +6,28 @@ import { raycastEntityHit } from '../entities/EntityHitboxPhysics';
 import { PlayerController } from '../player/PlayerController';
 import { PlayerPhysics } from '../player/PlayerPhysics';
 import { ExplorationSystem } from '../systems/ExplorationSystem';
-import { getItemForBlock, ITEM_REGISTRY } from '../systems/ItemRegistry';
+import { getItemForBlock, ITEM_REGISTRY, isDoorItem } from '../systems/ItemRegistry';
 import { DroppedItemManager } from '../entities/DroppedItemManager';
 import { breakDependentBlocks } from '../voxel/DependentBlockSystem';
-import { BLOCK_DEFS, isFlintBlock, isLeavesBlock, isLogBlock, isPlantBlock, isPlankBlock, isShrubBlock, isStoneOrOre, isWaterBlock } from '../voxel/Blocks';
+import {
+  BLOCK_DEFS,
+  isFlintBlock,
+  isLeavesBlock,
+  isLogBlock,
+  isPlantBlock,
+  isPlankBlock,
+  isShrubBlock,
+  isStoneOrOre,
+  isWaterBlock,
+  isDoorBlock,
+  isDoorBottom,
+  isDoorTop,
+  isDoorOpen,
+  getDoorOppositeStateBlock,
+  getDoorTopForBottom
+} from '../voxel/Blocks';
 import { VoxelWorld } from '../voxel/VoxelWorld';
+import { CHUNK_H } from '../voxel/ChunkConstants';
 import { getMinedBlockReplacement } from '../voxel/WaterFlora';
 
 export interface InteractionHandlerCallbacks {
@@ -21,7 +38,10 @@ export interface InteractionHandlerCallbacks {
   onUpdateHotbar: (hotbar: InventorySlot[]) => void;
   onUpdateInventory?: (inventory: InventorySlot[]) => void;
   onOpenInventory: () => void;
-  onOpenStation?: (stationId: 'inventory' | 'tool_crafter' | 'stone_bench' | 'furnace' | 'forge') => void;
+  onOpenStation?: (
+    stationId: 'inventory' | 'tool_crafter' | 'stone_bench' | 'furnace' | 'forge' | 'heater' | 'cooler',
+    coords?: { x: number; y: number; z: number }
+  ) => void;
   onOpenBestiary: () => void;
   onOpenSettings?: () => void;
   onDiscoveryBanner: (banner: { title: string; subtitle: string } | null) => void;
@@ -86,33 +106,67 @@ export class InteractionHandler {
       const entityManager = this.callbacks.getEntityManager();
       const explorationSystem = this.callbacks.getExplorationSystem();
 
-      // Allow opening Tool Crafter, Stone Bench, or Furnace workstation with right-click even if pointer is not currently locked
+      // Allow opening Workstations with right-click even if pointer is not currently locked
       if (
         e.button === 2 &&
         player?.targetedBlock?.hit &&
         (player.targetedBlock.block === BlockType.TOOL_CRAFTER ||
           player.targetedBlock.block === BlockType.STONE_BENCH ||
           player.targetedBlock.block === BlockType.FURNACE ||
-          player.targetedBlock.block === BlockType.FORGE)
+          player.targetedBlock.block === BlockType.FORGE ||
+          player.targetedBlock.block === BlockType.HEATER ||
+          player.targetedBlock.block === BlockType.COOLER)
       ) {
         e.preventDefault();
         soundManager.playChime(440);
+        const { x, y, z, block } = player.targetedBlock;
         const stationType =
-          player.targetedBlock.block === BlockType.FORGE
+          block === BlockType.HEATER
+            ? 'heater'
+            : block === BlockType.COOLER
+            ? 'cooler'
+            : block === BlockType.FORGE
             ? 'forge'
-            : player.targetedBlock.block === BlockType.FURNACE
+            : block === BlockType.FURNACE
             ? 'furnace'
-            : player.targetedBlock.block === BlockType.STONE_BENCH
+            : block === BlockType.STONE_BENCH
             ? 'stone_bench'
             : 'tool_crafter';
         if (this.callbacks.onOpenStation) {
-          this.callbacks.onOpenStation(stationType);
+          this.callbacks.onOpenStation(stationType, { x, y, z });
         } else {
           this.callbacks.onOpenInventory();
         }
         if (document.pointerLockElement) {
           document.exitPointerLock();
         }
+        return;
+      }
+
+      // Allow toggling doors with right-click even if pointer is not locked
+      if (
+        e.button === 2 &&
+        player?.targetedBlock?.hit &&
+        isDoorBlock(player.targetedBlock.block)
+      ) {
+        e.preventDefault();
+        const { x, y, z, block } = player.targetedBlock;
+        const isTop = isDoorTop(block);
+        const partnerY = isTop ? y - 1 : y + 1;
+        const partnerBlock = world ? world.getBlock(x, partnerY, z) : BlockType.AIR;
+
+        const newSelf = getDoorOppositeStateBlock(block);
+        const newPartner = isDoorBlock(partnerBlock) ? getDoorOppositeStateBlock(partnerBlock) : partnerBlock;
+
+        if (world) {
+          world.setBlock(x, y, z, newSelf);
+          if (isDoorBlock(partnerBlock)) {
+            world.setBlock(x, partnerY, z, newPartner);
+          }
+        }
+
+        const wasOpen = isDoorOpen(block);
+        soundManager.playDoor(!wasOpen);
         return;
       }
 
@@ -248,19 +302,44 @@ export class InteractionHandler {
             }
           }
 
-          // If clicking a Tool Crafter, Stone Bench, Furnace, or Forge workstation, open its UI!
+          // If clicking a door, toggle it open or closed with smooth audio!
+          if (isDoorBlock(block)) {
+            const isTop = isDoorTop(block);
+            const partnerY = isTop ? y - 1 : y + 1;
+            const partnerBlock = world.getBlock(x, partnerY, z);
+
+            const newSelf = getDoorOppositeStateBlock(block);
+            const newPartner = isDoorBlock(partnerBlock) ? getDoorOppositeStateBlock(partnerBlock) : partnerBlock;
+
+            world.setBlock(x, y, z, newSelf);
+            if (isDoorBlock(partnerBlock)) {
+              world.setBlock(x, partnerY, z, newPartner);
+            }
+
+            const wasOpen = isDoorOpen(block);
+            soundManager.playDoor(!wasOpen);
+            return;
+          }
+
+          // If clicking a Workstation, open its dedicated UI!
           if (
             block === BlockType.TOOL_CRAFTER ||
             block === BlockType.STONE_BENCH ||
             block === BlockType.FURNACE ||
-            block === BlockType.FORGE
+            block === BlockType.FORGE ||
+            block === BlockType.HEATER ||
+            block === BlockType.COOLER
           ) {
             if (document.pointerLockElement) {
               document.exitPointerLock();
             }
             soundManager.playChime(440);
             const stationType =
-              block === BlockType.FORGE
+              block === BlockType.HEATER
+                ? 'heater'
+                : block === BlockType.COOLER
+                ? 'cooler'
+                : block === BlockType.FORGE
                 ? 'forge'
                 : block === BlockType.FURNACE
                 ? 'furnace'
@@ -268,7 +347,7 @@ export class InteractionHandler {
                 ? 'stone_bench'
                 : 'tool_crafter';
             if (this.callbacks.onOpenStation) {
-              this.callbacks.onOpenStation(stationType);
+              this.callbacks.onOpenStation(stationType, { x, y, z });
             } else {
               this.callbacks.onOpenInventory();
             }
@@ -476,6 +555,38 @@ export class InteractionHandler {
             const px = x + nx;
             const py = y + ny;
             const pz = z + nz;
+
+            // Handle 2-block tall door placement
+            if (isDoorItem(activeItem) || isDoorBottom(activeItem.blockId)) {
+              if (py + 1 < CHUNK_H) {
+                const bBottom = world.getBlock(px, py, pz);
+                const bTop = world.getBlock(px, py + 1, pz);
+                if (
+                  (bBottom === BlockType.AIR || isPlantBlock(bBottom)) &&
+                  (bTop === BlockType.AIR || isPlantBlock(bTop))
+                ) {
+                  const bottomBlock = activeItem.blockId;
+                  const topBlock = getDoorTopForBottom(bottomBlock);
+
+                  world.setBlock(px, py, pz, bottomBlock);
+                  world.setBlock(px, py + 1, pz, topBlock);
+
+                  soundManager.playStep('wood');
+                  explorationSystem.stats.blocksPlaced++;
+
+                  const newHotbar = hotbar.map((s) => ({ ...s }));
+                  if (newHotbar[selectedIndex].count > 1) {
+                    newHotbar[selectedIndex].count--;
+                  } else {
+                    newHotbar[selectedIndex].item = null;
+                    newHotbar[selectedIndex].count = 0;
+                  }
+                  this.callbacks.onUpdateHotbar(newHotbar);
+                  return;
+                }
+              }
+              return;
+            }
 
             // Prevent placing block inside player AABB
             const playerBox = new THREE.Box3(
@@ -1000,6 +1111,15 @@ export class InteractionHandler {
         const replacementBlock = getMinedBlockReplacement(block, y);
         world.setBlock(x, y, z, replacementBlock);
         explorationSystem.stats.blocksMined++;
+
+        // If a door was broken, also break its partner half
+        if (isDoorBlock(block)) {
+          const partnerY = isDoorTop(block) ? y - 1 : y + 1;
+          const partnerBlock = world.getBlock(x, partnerY, z);
+          if (isDoorBlock(partnerBlock)) {
+            world.setBlock(x, partnerY, z, BlockType.AIR);
+          }
+        }
 
         // Break any dependent blocks that were staying on or attached to this block
         const droppedItemManager = this.callbacks.getDroppedItemManager?.();

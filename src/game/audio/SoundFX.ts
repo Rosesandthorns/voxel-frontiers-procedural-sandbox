@@ -1718,6 +1718,11 @@ export class SoundFX {
   public playSizzle() {
     this.playStep('sand');
   }
+
+  public playDoor(isOpen: boolean = true) {
+    this.playStep('wood');
+    this.playChime(isOpen ? 440 : 330);
+  }
 }
 
 export const soundManager = new SoundFX();

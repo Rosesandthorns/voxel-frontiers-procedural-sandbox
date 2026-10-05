@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { BlockDef, BlockType } from '../../types';
-import { BLOCK_DEFS, isFlintBlock, isWaterBlock, getWaterLevel, isTopsnow, getTopsnowHeight, getTopsnowStage, isPlantBlock } from './Blocks';
+import { BLOCK_DEFS, isFlintBlock, isWaterBlock, getWaterLevel, isTopsnow, getTopsnowHeight, getTopsnowStage, isPlantBlock, isDoorOpen } from './Blocks';
 import { Chunk } from './Chunk';
 import { CHUNK_D, CHUNK_H, CHUNK_W, CUBE_FACES, SEA_LEVEL } from './ChunkConstants';
 import { TextureAtlas } from './TextureAtlas';
@@ -237,6 +237,69 @@ export class ChunkMesher {
               _idx[vi++] = vertIndex;   _idx[vi++] = vertIndex+2; _idx[vi++] = vertIndex+3;
             }
             if (!isWaterlogged) continue;
+          } else if (def.renderType === 'door') {
+            const blockUVs = this.atlas.getUVs(block);
+            const uvFace = blockUVs.side || blockUVs.top;
+            const open = isDoorOpen(block);
+
+            // 3D Door Slab (0.16 thickness):
+            // Closed: aligned across X, thin in Z [z + 0.42, z + 0.58]
+            // Open: swung 90 degrees against side jamb [x + 0.05, x + 0.21]
+            const x0 = open ? x + 0.05 : x;
+            const x1 = open ? x + 0.21 : x + 1.0;
+            const y0 = y;
+            const y1 = y + 1.0;
+            const z0 = open ? z : z + 0.42;
+            const z1 = open ? z + 1.0 : z + 0.58;
+
+            const addDoorQuad = (
+              px0: number, py0: number, pz0: number,
+              px1: number, py1: number, pz1: number,
+              px2: number, py2: number, pz2: number,
+              px3: number, py3: number, pz3: number,
+              nx: number, ny: number, nz: number,
+              shade: number
+            ) => {
+              const vertIndex = solidVerts;
+              _pos[vp++] = px0; _pos[vp++] = py0; _pos[vp++] = pz0;
+              _nrm[vn++] = nx;  _nrm[vn++] = ny;  _nrm[vn++] = nz;
+              _uv[vu++]  = uvFace.u0; _uv[vu++] = uvFace.v0;
+              _col[vc++] = shade; _col[vc++] = shade; _col[vc++] = shade;
+
+              _pos[vp++] = px1; _pos[vp++] = py1; _pos[vp++] = pz1;
+              _nrm[vn++] = nx;  _nrm[vn++] = ny;  _nrm[vn++] = nz;
+              _uv[vu++]  = uvFace.u1; _uv[vu++] = uvFace.v0;
+              _col[vc++] = shade; _col[vc++] = shade; _col[vc++] = shade;
+
+              _pos[vp++] = px2; _pos[vp++] = py2; _pos[vp++] = pz2;
+              _nrm[vn++] = nx;  _nrm[vn++] = ny;  _nrm[vn++] = nz;
+              _uv[vu++]  = uvFace.u1; _uv[vu++] = uvFace.v1;
+              _col[vc++] = shade; _col[vc++] = shade; _col[vc++] = shade;
+
+              _pos[vp++] = px3; _pos[vp++] = py3; _pos[vp++] = pz3;
+              _nrm[vn++] = nx;  _nrm[vn++] = ny;  _nrm[vn++] = nz;
+              _uv[vu++]  = uvFace.u0; _uv[vu++] = uvFace.v1;
+              _col[vc++] = shade; _col[vc++] = shade; _col[vc++] = shade;
+
+              solidVerts += 4;
+              _idx[vi++] = vertIndex; _idx[vi++] = vertIndex + 1; _idx[vi++] = vertIndex + 2;
+              _idx[vi++] = vertIndex; _idx[vi++] = vertIndex + 2; _idx[vi++] = vertIndex + 3;
+            };
+
+            // South (+Z)
+            addDoorQuad(x0, y0, z1, x1, y0, z1, x1, y1, z1, x0, y1, z1, 0, 0, 1, 0.95);
+            // North (-Z)
+            addDoorQuad(x1, y0, z0, x0, y0, z0, x0, y1, z0, x1, y1, z0, 0, 0, -1, 0.90);
+            // East (+X)
+            addDoorQuad(x1, y0, z1, x1, y0, z0, x1, y1, z0, x1, y1, z1, 1, 0, 0, 0.85);
+            // West (-X)
+            addDoorQuad(x0, y0, z0, x0, y0, z1, x0, y1, z1, x0, y1, z0, -1, 0, 0, 0.85);
+            // Top (+Y)
+            addDoorQuad(x0, y1, z1, x1, y1, z1, x1, y1, z0, x0, y1, z0, 0, 1, 0, 1.0);
+            // Bottom (-Y)
+            addDoorQuad(x0, y0, z0, x1, y0, z0, x1, y0, z1, x0, y0, z1, 0, -1, 0, 0.7);
+
+            continue;
           } else if (def.renderType === 'wall' || block === BlockType.VINE) {
             // Flat against a wall and vertically (Rainforest Vines)
             const blockUVs = this.atlas.getUVs(block);

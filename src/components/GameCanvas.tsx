@@ -43,10 +43,13 @@ interface GameCanvasProps {
   onDiscoveryBanner: (banner: { title: string; subtitle: string } | null) => void;
   isPaused: boolean;
   onOpenInventory: () => void;
-  onOpenStation?: (stationId: 'inventory' | 'tool_crafter' | 'stone_bench' | 'furnace' | 'forge') => void;
+  onOpenStation?: (
+    stationId: 'inventory' | 'tool_crafter' | 'stone_bench' | 'furnace' | 'forge' | 'heater' | 'cooler',
+    coords?: { x: number; y: number; z: number }
+  ) => void;
   onOpenBestiary: () => void;
   onOpenSettings?: () => void;
-  onWorldReady?: (ready: boolean) => void;
+  onWorldReady?: (ready: boolean, world?: VoxelWorld) => void;
   onMiningProgress?: (progress: number) => void;
   seasonWeatherSystem?: SeasonWeatherSystem;
 }
@@ -230,7 +233,7 @@ const GameCanvasComponent: React.FC<GameCanvasProps> = ({
         if (isCancelled) return;
         isWorldReadyRef.current = true;
         setIsWorldReady(true);
-        if (onWorldReady) onWorldReady(true);
+        if (onWorldReady) onWorldReady(true, world);
 
         // Seamlessly stream surrounding chunks in the background without frame drops
         world.updateChunksAround(
@@ -282,10 +285,10 @@ const GameCanvasComponent: React.FC<GameCanvasProps> = ({
         markEnteredWorld();
         onOpenInventory();
       },
-      onOpenStation: (st) => {
+      onOpenStation: (st, coords) => {
         markEnteredWorld();
         if (onOpenStation) {
-          onOpenStation(st);
+          onOpenStation(st, coords);
         } else {
           onOpenInventory();
         }

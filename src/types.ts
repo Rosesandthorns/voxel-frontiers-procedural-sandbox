@@ -143,7 +143,59 @@ export enum BlockType {
   TOPSNOW_5 = 132,
   FORGE = 133,
   FARMLAND = 134,
-  SAND_FARMLAND = 135
+  SAND_FARMLAND = 135,
+  // Workstations: Heater & Cooler
+  HEATER = 136,
+  COOLER = 137,
+  // Wooden Doors (Bottom & Top, Closed & Open) for all 12 wood types
+  OAK_DOOR_BOTTOM = 138,
+  OAK_DOOR_TOP = 139,
+  OAK_DOOR_BOTTOM_OPEN = 140,
+  OAK_DOOR_TOP_OPEN = 141,
+  REDWOOD_DOOR_BOTTOM = 142,
+  REDWOOD_DOOR_TOP = 143,
+  REDWOOD_DOOR_BOTTOM_OPEN = 144,
+  REDWOOD_DOOR_TOP_OPEN = 145,
+  WILLOW_DOOR_BOTTOM = 146,
+  WILLOW_DOOR_TOP = 147,
+  WILLOW_DOOR_BOTTOM_OPEN = 148,
+  WILLOW_DOOR_TOP_OPEN = 149,
+  EVERFROST_DOOR_BOTTOM = 150,
+  EVERFROST_DOOR_TOP = 151,
+  EVERFROST_DOOR_BOTTOM_OPEN = 152,
+  EVERFROST_DOOR_TOP_OPEN = 153,
+  PALM_DOOR_BOTTOM = 154,
+  PALM_DOOR_TOP = 155,
+  PALM_DOOR_BOTTOM_OPEN = 156,
+  PALM_DOOR_TOP_OPEN = 157,
+  GHOST_DOOR_BOTTOM = 158,
+  GHOST_DOOR_TOP = 159,
+  GHOST_DOOR_BOTTOM_OPEN = 160,
+  GHOST_DOOR_TOP_OPEN = 161,
+  RAINFOREST_OAK_DOOR_BOTTOM = 162,
+  RAINFOREST_OAK_DOOR_TOP = 163,
+  RAINFOREST_OAK_DOOR_BOTTOM_OPEN = 164,
+  RAINFOREST_OAK_DOOR_TOP_OPEN = 165,
+  KAPOK_DOOR_BOTTOM = 166,
+  KAPOK_DOOR_TOP = 167,
+  KAPOK_DOOR_BOTTOM_OPEN = 168,
+  KAPOK_DOOR_TOP_OPEN = 169,
+  BANYAN_DOOR_BOTTOM = 170,
+  BANYAN_DOOR_TOP = 171,
+  BANYAN_DOOR_BOTTOM_OPEN = 172,
+  BANYAN_DOOR_TOP_OPEN = 173,
+  STRANGLER_DOOR_BOTTOM = 174,
+  STRANGLER_DOOR_TOP = 175,
+  STRANGLER_DOOR_BOTTOM_OPEN = 176,
+  STRANGLER_DOOR_TOP_OPEN = 177,
+  MAHOGANY_DOOR_BOTTOM = 178,
+  MAHOGANY_DOOR_TOP = 179,
+  MAHOGANY_DOOR_BOTTOM_OPEN = 180,
+  MAHOGANY_DOOR_TOP_OPEN = 181,
+  CEIBA_DOOR_BOTTOM = 182,
+  CEIBA_DOOR_TOP = 183,
+  CEIBA_DOOR_BOTTOM_OPEN = 184,
+  CEIBA_DOOR_TOP_OPEN = 185
 }
 
 export enum Season {
@@ -196,6 +248,7 @@ export type BlockSoundCategory =
   | 'glass'
   | 'crystal'
   | 'magma'
+  | 'metal'
   | 'water';
 
 export interface BlockDef {
@@ -211,7 +264,7 @@ export interface BlockDef {
   sideTexture?: string;
   bottomTexture?: string;
   soundType: BlockSoundCategory;
-  renderType?: 'cube' | 'cross' | 'flat' | 'wall' | 'flint_nodule';
+  renderType?: 'cube' | 'cross' | 'flat' | 'wall' | 'flint_nodule' | 'door';
   climbable?: boolean;
 }
 

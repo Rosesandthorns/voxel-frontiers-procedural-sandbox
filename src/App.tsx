@@ -15,6 +15,7 @@ import {
   tickFurnaceState
 } from './game/systems/ItemRegistry';
 import { soundManager } from './game/audio/SoundFX';
+import type { VoxelWorld } from './game/voxel/VoxelWorld';
 
 export default function App() {
   // Exploration System instance
@@ -36,7 +37,7 @@ export default function App() {
     Array.from({ length: 9 }, () => ({ item: null, count: 0 }))
   );
 
-  // Initial Backpack Inventory (24 slots)
+  // Initial Backpack Inventory (27 slots)
   const [inventory, setInventory] = useState<InventorySlot[]>(createDefaultBackpack);
 
   const [selectedHotbarIndex, setSelectedHotbarIndex] = useState<number>(0);
@@ -54,7 +55,11 @@ export default function App() {
 
   // Modals & Banners
   const [isInventoryOpen, setIsInventoryOpen] = useState<boolean>(false);
-  const [activeStation, setActiveStation] = useState<'inventory' | 'tool_crafter' | 'stone_bench' | 'furnace' | 'forge'>('inventory');
+  const [activeStation, setActiveStation] = useState<
+    'inventory' | 'tool_crafter' | 'stone_bench' | 'furnace' | 'forge' | 'heater' | 'cooler'
+  >('inventory');
+  const [activeStationCoords, setActiveStationCoords] = useState<{ x: number; y: number; z: number } | null>(null);
+  const [world, setWorld] = useState<VoxelWorld | null>(null);
   const [furnaceState, setFurnaceState] = useState<FurnaceState>(createDefaultFurnaceState);
 
   // Background & live furnace tick (runs whether modal is open or closed, zero re-render when idle)
@@ -141,11 +146,16 @@ export default function App() {
 
   const handleOpenInventory = useCallback(() => {
     setActiveStation('inventory');
+    setActiveStationCoords(null);
     setIsInventoryOpen(true);
   }, []);
 
-  const handleOpenStation = useCallback((st: 'inventory' | 'tool_crafter' | 'stone_bench' | 'furnace' | 'forge') => {
+  const handleOpenStation = useCallback((
+    st: 'inventory' | 'tool_crafter' | 'stone_bench' | 'furnace' | 'forge' | 'heater' | 'cooler',
+    coords?: { x: number; y: number; z: number }
+  ) => {
     setActiveStation(st);
+    setActiveStationCoords(coords || null);
     setIsInventoryOpen(true);
   }, []);
 
@@ -166,7 +176,10 @@ export default function App() {
         inventory={inventory}
         explorationSystem={explorationSystem}
         seasonWeatherSystem={seasonWeatherSystem}
-        onWorldReady={setIsWorldReady}
+        onWorldReady={(ready, w) => {
+          setIsWorldReady(ready);
+          if (w) setWorld(w);
+        }}
         onMiningProgress={setMiningProgress}
         onPlayerVitalsUpdate={handlePlayerVitalsUpdate}
         onDiscoveryBanner={setDiscoveryBanner}
@@ -198,6 +211,7 @@ export default function App() {
           isThirdPerson={settings.enableThirdPerson}
           onOpenInventory={() => {
             setActiveStation('inventory');
+            setActiveStationCoords(null);
             setIsInventoryOpen(true);
           }}
           onOpenBestiary={() => setIsBestiaryOpen(true)}
@@ -211,6 +225,8 @@ export default function App() {
           hotbar={hotbar}
           inventory={inventory}
           initialStation={activeStation}
+          stationCoords={activeStationCoords}
+          world={world}
           furnaceState={furnaceState}
           onUpdateFurnaceState={setFurnaceState}
           onUpdateSlots={(newHotbar, newInv) => {

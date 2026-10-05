@@ -27,6 +27,8 @@ import { BlockType, InventorySlot, ItemDef } from '../types';
 import { isPlankBlock, isLogBlock } from '../game/voxel/Blocks';
 import { ItemIcon } from './ItemIcon';
 import { ForgeStation } from './ForgeStation';
+import { ThermalStationView } from './ThermalStationView';
+import type { VoxelWorld } from '../game/voxel/VoxelWorld';
 import {
   X,
   Layers,
@@ -41,7 +43,8 @@ import {
   Flame,
   Thermometer,
   Hammer,
-  Droplets
+  Droplets,
+  Snowflake
 } from 'lucide-react';
 
 interface InventoryModalProps {
@@ -49,7 +52,9 @@ interface InventoryModalProps {
   inventory: InventorySlot[];
   onUpdateSlots: (hotbar: InventorySlot[], inventory: InventorySlot[]) => void;
   onClose: () => void;
-  initialStation?: 'inventory' | 'tool_crafter' | 'stone_bench' | 'furnace' | 'forge';
+  initialStation?: 'inventory' | 'tool_crafter' | 'stone_bench' | 'furnace' | 'forge' | 'heater' | 'cooler';
+  stationCoords?: { x: number; y: number; z: number } | null;
+  world?: VoxelWorld | null;
   furnaceState?: FurnaceState;
   onUpdateFurnaceState?: React.Dispatch<React.SetStateAction<FurnaceState>>;
 }
@@ -160,6 +165,8 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
   onUpdateSlots,
   onClose,
   initialStation = 'inventory',
+  stationCoords = null,
+  world = null,
   furnaceState: propFurnaceState,
   onUpdateFurnaceState
 }) => {
@@ -2055,7 +2062,11 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
         <div className="flex items-center justify-between border-b-2 border-stone-800 px-3 py-2 bg-stone-900 shrink-0 font-mono">
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-1.5 px-2.5 py-1 border-2 border-t-amber-400 border-l-amber-400 border-b-amber-900 border-r-amber-900 bg-amber-600 text-stone-950 font-bold uppercase text-xs">
-              {initialStation === 'forge' ? (
+              {initialStation === 'heater' ? (
+                <Flame className="h-4 w-4" />
+              ) : initialStation === 'cooler' ? (
+                <Snowflake className="h-4 w-4" />
+              ) : initialStation === 'forge' ? (
                 <Hammer className="h-4 w-4" />
               ) : initialStation === 'furnace' ? (
                 <Flame className="h-4 w-4" />
@@ -2063,7 +2074,11 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
                 <Layers className="h-4 w-4" />
               )}
               <span>
-                {initialStation === 'forge'
+                {initialStation === 'heater'
+                  ? 'Thermal Heater Workstation — Radiator'
+                  : initialStation === 'cooler'
+                  ? 'Cryo Cooler Workstation — Condenser'
+                  : initialStation === 'forge'
                   ? 'Advanced Metallurgy Forge — Tool Heads & Mold Studio'
                   : initialStation === 'furnace'
                   ? 'Stone Furnace — 5-Fuel Thermal Smelter'
@@ -2074,7 +2089,11 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
                   : '3x3 Assembly Workbench'}
               </span>
             </div>
-            {initialStation !== 'stone_bench' && initialStation !== 'furnace' && initialStation !== 'forge' && (
+            {initialStation !== 'stone_bench' &&
+              initialStation !== 'furnace' &&
+              initialStation !== 'forge' &&
+              initialStation !== 'heater' &&
+              initialStation !== 'cooler' && (
               <span className="text-[11px] text-stone-400 hidden sm:inline">
                 {totalCraftable} craftable recipes
               </span>
@@ -2805,6 +2824,21 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
               </div>
             </div>
           </div>
+        ) : initialStation === 'heater' || initialStation === 'cooler' ? (
+          <ThermalStationView
+            stationType={initialStation}
+            coords={stationCoords}
+            world={world}
+            hotbar={localHotbar}
+            inventory={localInventory}
+            onUpdateSlots={(h, inv) => commitSlots(h, inv)}
+            setStatusFeedback={(msg) => {
+              setStatusFeedback(msg);
+              if (msg) setTimeout(() => setStatusFeedback(null), 2500);
+            }}
+            selectedSlotIndex={selectedSlotIndex}
+            onClearSelectedSlot={() => setSelectedSlotIndex(null)}
+          />
         ) : initialStation === 'forge' ? (
           <ForgeStation
             hotbar={localHotbar}

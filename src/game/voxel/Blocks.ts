@@ -1313,8 +1313,97 @@ export const BLOCK_DEFS: Record<BlockType, BlockDef> = {
     hardness: 0.5,
     color: '#d2b48c',
     soundType: 'sand'
+  },
+  [BlockType.HEATER]: {
+    id: BlockType.HEATER,
+    name: 'Heater',
+    solid: true,
+    transparent: false,
+    hardness: 1.8,
+    color: '#d97706',
+    soundType: 'metal'
+  },
+  [BlockType.COOLER]: {
+    id: BlockType.COOLER,
+    name: 'Cooler',
+    solid: true,
+    transparent: false,
+    hardness: 1.8,
+    color: '#0284c7',
+    soundType: 'metal'
   }
-};
+} as Record<BlockType, BlockDef>;
+
+// ── Register all 12 Wood Doors into BLOCK_DEFS ──
+export interface WoodDoorInfo {
+  woodName: string;
+  itemKey: string;
+  bottom: BlockType;
+  top: BlockType;
+  bottomOpen: BlockType;
+  topOpen: BlockType;
+  color: string;
+  isInsulated?: boolean;
+}
+
+export const WOOD_DOOR_INFOS: WoodDoorInfo[] = [
+  { woodName: 'Oak', itemKey: 'oak_door', bottom: BlockType.OAK_DOOR_BOTTOM, top: BlockType.OAK_DOOR_TOP, bottomOpen: BlockType.OAK_DOOR_BOTTOM_OPEN, topOpen: BlockType.OAK_DOOR_TOP_OPEN, color: '#b48c5a' },
+  { woodName: 'Redwood', itemKey: 'redwood_door', bottom: BlockType.REDWOOD_DOOR_BOTTOM, top: BlockType.REDWOOD_DOOR_TOP, bottomOpen: BlockType.REDWOOD_DOOR_BOTTOM_OPEN, topOpen: BlockType.REDWOOD_DOOR_TOP_OPEN, color: '#934b35' },
+  { woodName: 'Willow', itemKey: 'willow_door', bottom: BlockType.WILLOW_DOOR_BOTTOM, top: BlockType.WILLOW_DOOR_TOP, bottomOpen: BlockType.WILLOW_DOOR_BOTTOM_OPEN, topOpen: BlockType.WILLOW_DOOR_TOP_OPEN, color: '#688a5c' },
+  { woodName: 'Everfrost', itemKey: 'everfrost_door', bottom: BlockType.EVERFROST_DOOR_BOTTOM, top: BlockType.EVERFROST_DOOR_TOP, bottomOpen: BlockType.EVERFROST_DOOR_BOTTOM_OPEN, topOpen: BlockType.EVERFROST_DOOR_TOP_OPEN, color: '#8cafcd', isInsulated: true },
+  { woodName: 'Palm', itemKey: 'palm_door', bottom: BlockType.PALM_DOOR_BOTTOM, top: BlockType.PALM_DOOR_TOP, bottomOpen: BlockType.PALM_DOOR_BOTTOM_OPEN, topOpen: BlockType.PALM_DOOR_TOP_OPEN, color: '#c39b69' },
+  { woodName: 'Ghost', itemKey: 'ghost_door', bottom: BlockType.GHOST_DOOR_BOTTOM, top: BlockType.GHOST_DOOR_TOP, bottomOpen: BlockType.GHOST_DOOR_BOTTOM_OPEN, topOpen: BlockType.GHOST_DOOR_TOP_OPEN, color: '#d6dbe0' },
+  { woodName: 'Rainforest Oak', itemKey: 'rainforest_oak_door', bottom: BlockType.RAINFOREST_OAK_DOOR_BOTTOM, top: BlockType.RAINFOREST_OAK_DOOR_TOP, bottomOpen: BlockType.RAINFOREST_OAK_DOOR_BOTTOM_OPEN, topOpen: BlockType.RAINFOREST_OAK_DOOR_TOP_OPEN, color: '#6d754b' },
+  { woodName: 'Kapok', itemKey: 'kapok_door', bottom: BlockType.KAPOK_DOOR_BOTTOM, top: BlockType.KAPOK_DOOR_TOP, bottomOpen: BlockType.KAPOK_DOOR_BOTTOM_OPEN, topOpen: BlockType.KAPOK_DOOR_TOP_OPEN, color: '#c4ad8d' },
+  { woodName: 'Banyan', itemKey: 'banyan_door', bottom: BlockType.BANYAN_DOOR_BOTTOM, top: BlockType.BANYAN_DOOR_TOP, bottomOpen: BlockType.BANYAN_DOOR_BOTTOM_OPEN, topOpen: BlockType.BANYAN_DOOR_TOP_OPEN, color: '#8b694b' },
+  { woodName: 'Strangler', itemKey: 'strangler_door', bottom: BlockType.STRANGLER_DOOR_BOTTOM, top: BlockType.STRANGLER_DOOR_TOP, bottomOpen: BlockType.STRANGLER_DOOR_BOTTOM_OPEN, topOpen: BlockType.STRANGLER_DOOR_TOP_OPEN, color: '#6e4f3a' },
+  { woodName: 'Mahogany', itemKey: 'mahogany_door', bottom: BlockType.MAHOGANY_DOOR_BOTTOM, top: BlockType.MAHOGANY_DOOR_TOP, bottomOpen: BlockType.MAHOGANY_DOOR_BOTTOM_OPEN, topOpen: BlockType.MAHOGANY_DOOR_TOP_OPEN, color: '#7a3b2e' },
+  { woodName: 'Ceiba', itemKey: 'ceiba_door', bottom: BlockType.CEIBA_DOOR_BOTTOM, top: BlockType.CEIBA_DOOR_TOP, bottomOpen: BlockType.CEIBA_DOOR_BOTTOM_OPEN, topOpen: BlockType.CEIBA_DOOR_TOP_OPEN, color: '#8a7a5f' }
+];
+
+for (const d of WOOD_DOOR_INFOS) {
+  const prefix = d.isInsulated ? `Insulated ${d.woodName}` : d.woodName;
+  BLOCK_DEFS[d.bottom] = {
+    id: d.bottom,
+    name: `${prefix} Door (Lower)`,
+    solid: true,
+    transparent: true,
+    hardness: 1.0,
+    color: d.color,
+    soundType: 'wood',
+    renderType: 'door'
+  };
+  BLOCK_DEFS[d.top] = {
+    id: d.top,
+    name: `${prefix} Door (Upper)`,
+    solid: true,
+    transparent: true,
+    hardness: 1.0,
+    color: d.color,
+    soundType: 'wood',
+    renderType: 'door'
+  };
+  BLOCK_DEFS[d.bottomOpen] = {
+    id: d.bottomOpen,
+    name: `${prefix} Door (Lower, Open)`,
+    solid: false,
+    transparent: true,
+    hardness: 1.0,
+    color: d.color,
+    soundType: 'wood',
+    renderType: 'door'
+  };
+  BLOCK_DEFS[d.topOpen] = {
+    id: d.topOpen,
+    name: `${prefix} Door (Upper, Open)`,
+    solid: false,
+    transparent: true,
+    hardness: 1.0,
+    color: d.color,
+    soundType: 'wood',
+    renderType: 'door'
+  };
+}
 
 export function isShrubBlock(type: BlockType): boolean {
   return (
@@ -1593,5 +1682,85 @@ export function isMoistureSensitiveBlock(type: BlockType): boolean {
     type === BlockType.SAND_FARMLAND
   );
 }
+
+// ── Door Classification & Manipulation Helpers ──
+
+export function isDoorBlock(type: BlockType): boolean {
+  return type >= BlockType.OAK_DOOR_BOTTOM && type <= BlockType.CEIBA_DOOR_TOP_OPEN;
+}
+
+export function isDoorBottom(type: BlockType): boolean {
+  if (!isDoorBlock(type)) return false;
+  for (const d of WOOD_DOOR_INFOS) {
+    if (type === d.bottom || type === d.bottomOpen) return true;
+  }
+  return false;
+}
+
+export function isDoorTop(type: BlockType): boolean {
+  if (!isDoorBlock(type)) return false;
+  for (const d of WOOD_DOOR_INFOS) {
+    if (type === d.top || type === d.topOpen) return true;
+  }
+  return false;
+}
+
+export function isDoorOpen(type: BlockType): boolean {
+  if (!isDoorBlock(type)) return false;
+  for (const d of WOOD_DOOR_INFOS) {
+    if (type === d.bottomOpen || type === d.topOpen) return true;
+  }
+  return false;
+}
+
+/**
+ * Returns true if the block is an Insulated Everfrost Door.
+ * Everfrost doors are insulated, meaning they seal enclosed spaces against temperature loss.
+ */
+export function isInsulatedDoor(type: BlockType): boolean {
+  return (
+    type === BlockType.EVERFROST_DOOR_BOTTOM ||
+    type === BlockType.EVERFROST_DOOR_TOP ||
+    type === BlockType.EVERFROST_DOOR_BOTTOM_OPEN ||
+    type === BlockType.EVERFROST_DOOR_TOP_OPEN
+  );
+}
+
+export function getDoorOppositeStateBlock(type: BlockType): BlockType {
+  for (const d of WOOD_DOOR_INFOS) {
+    if (type === d.bottom) return d.bottomOpen;
+    if (type === d.bottomOpen) return d.bottom;
+    if (type === d.top) return d.topOpen;
+    if (type === d.topOpen) return d.top;
+  }
+  return type;
+}
+
+export function getDoorItemKey(type: BlockType): string {
+  for (const d of WOOD_DOOR_INFOS) {
+    if (
+      type === d.bottom ||
+      type === d.top ||
+      type === d.bottomOpen ||
+      type === d.topOpen
+    ) {
+      return d.itemKey;
+    }
+  }
+  return 'oak_door';
+}
+
+export function getDoorTopForBottom(bottomBlock: BlockType): BlockType {
+  for (const d of WOOD_DOOR_INFOS) {
+    if (bottomBlock === d.bottom) return d.top;
+    if (bottomBlock === d.bottomOpen) return d.topOpen;
+  }
+  return BlockType.OAK_DOOR_TOP;
+}
+
+export function isThermalWorkstation(type: BlockType): boolean {
+  return type === BlockType.HEATER || type === BlockType.COOLER;
+}
+
 
 

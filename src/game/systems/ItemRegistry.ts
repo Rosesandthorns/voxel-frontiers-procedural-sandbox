@@ -1,5 +1,5 @@
 import { BlockType, InventorySlot, ItemDef } from '../../types';
-import { BLOCK_DEFS, isFlintBlock } from '../voxel/Blocks';
+import { BLOCK_DEFS, isFlintBlock, isDoorBlock, getDoorItemKey } from '../voxel/Blocks';
 import { getBlockSideTexture } from '../voxel/TextureAtlas';
 
 export interface CraftingIngredient {
@@ -7,7 +7,7 @@ export interface CraftingIngredient {
   count: number;
 }
 
-export type StationType = 'inventory' | 'tool_crafter' | 'stone_bench' | 'furnace' | 'forge';
+export type StationType = 'inventory' | 'tool_crafter' | 'stone_bench' | 'furnace' | 'forge' | 'heater' | 'cooler';
 
 export interface CraftingRecipe {
   id: string;
@@ -648,6 +648,162 @@ export const ITEM_REGISTRY: Record<string, ItemDef> = {
     description: 'High-heat metallurgy forge crafted with 8 iron surrounding a furnace. Used to cast iron molds, indent tool molds using fuel, and cast molten materials into tools.',
     maxStack: 64
   },
+  heater: {
+    id: 'heater',
+    name: 'Heater',
+    type: 'block',
+    blockId: BlockType.HEATER,
+    icon: `data:image/svg+xml;utf8,${encodeURIComponent(
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" shape-rendering="crispEdges"><rect x="2" y="2" width="12" height="12" fill="#78350f"/><rect x="3" y="3" width="10" height="10" fill="#92400e"/><rect x="4" y="5" width="8" height="6" fill="#1f2937"/><rect x="5" y="6" width="6" height="4" fill="#ea580c"/><rect x="6" y="7" width="4" height="2" fill="#facc15"/><rect x="3" y="13" width="10" height="1" fill="#451a03"/><circle cx="8" cy="4" r="1" fill="#f97316"/></svg>'
+    )}`,
+    description: 'Thermal climate workstation consuming 1 fuel/day (holds up to 64). Melts ice to water & blocks snow gathering in a 5x5 radius. When placed in an enclosed space (<=1000 air blocks sealed by insulated Everfrost doors), unlocks Target Temp (H/M/C).',
+    maxStack: 64
+  },
+  cooler: {
+    id: 'cooler',
+    name: 'Cooler',
+    type: 'block',
+    blockId: BlockType.COOLER,
+    icon: `data:image/svg+xml;utf8,${encodeURIComponent(
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" shape-rendering="crispEdges"><rect x="2" y="2" width="12" height="12" fill="#0f172a"/><rect x="3" y="3" width="10" height="10" fill="#1e293b"/><rect x="4" y="5" width="8" height="6" fill="#0369a1"/><rect x="5" y="6" width="6" height="4" fill="#38bdf8"/><rect x="6" y="7" width="4" height="2" fill="#e0f2fe"/><rect x="3" y="13" width="10" height="1" fill="#0c4a6e"/><circle cx="8" cy="4" r="1" fill="#7dd3fc"/></svg>'
+    )}`,
+    description: 'Cryogenic climate workstation consuming 1 fuel/day (holds up to 64). Freezes water to packed ice & prevents snow melting in a 5x5 radius. When placed in an enclosed space (<=1000 air blocks sealed by insulated Everfrost doors), unlocks Target Temp (H/M/C).',
+    maxStack: 64
+  },
+
+  // --- Wooden Doors (All 12 Wood Types) ---
+  oak_door: {
+    id: 'oak_door',
+    name: 'Oak Door',
+    type: 'block',
+    blockId: BlockType.OAK_DOOR_BOTTOM,
+    icon: `data:image/svg+xml;utf8,${encodeURIComponent(
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" shape-rendering="crispEdges"><rect x="3" y="1" width="10" height="14" fill="#92400e"/><rect x="5" y="3" width="6" height="4" fill="#78350f"/><rect x="5" y="9" width="6" height="4" fill="#78350f"/><rect x="11" y="8" width="1" height="2" fill="#facc15"/></svg>'
+    )}`,
+    description: 'Classic hinged door milled from sturdy Oak planks. Right-click to open and close.',
+    maxStack: 64
+  },
+  redwood_door: {
+    id: 'redwood_door',
+    name: 'Redwood Door',
+    type: 'block',
+    blockId: BlockType.REDWOOD_DOOR_BOTTOM,
+    icon: `data:image/svg+xml;utf8,${encodeURIComponent(
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" shape-rendering="crispEdges"><rect x="3" y="1" width="10" height="14" fill="#991b1b"/><rect x="5" y="3" width="6" height="4" fill="#7f1d1d"/><rect x="5" y="9" width="6" height="4" fill="#7f1d1d"/><rect x="11" y="8" width="1" height="2" fill="#facc15"/></svg>'
+    )}`,
+    description: 'Deep crimson door milled from durable Redwood planks. Right-click to open and close.',
+    maxStack: 64
+  },
+  willow_door: {
+    id: 'willow_door',
+    name: 'Willow Door',
+    type: 'block',
+    blockId: BlockType.WILLOW_DOOR_BOTTOM,
+    icon: `data:image/svg+xml;utf8,${encodeURIComponent(
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" shape-rendering="crispEdges"><rect x="3" y="1" width="10" height="14" fill="#4d7c0f"/><rect x="5" y="3" width="6" height="4" fill="#365314"/><rect x="5" y="9" width="6" height="4" fill="#365314"/><rect x="11" y="8" width="1" height="2" fill="#facc15"/></svg>'
+    )}`,
+    description: 'Verdant textured door milled from swamp Willow planks. Right-click to open and close.',
+    maxStack: 64
+  },
+  everfrost_door: {
+    id: 'everfrost_door',
+    name: 'Insulated Everfrost Door',
+    type: 'block',
+    blockId: BlockType.EVERFROST_DOOR_BOTTOM,
+    icon: `data:image/svg+xml;utf8,${encodeURIComponent(
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" shape-rendering="crispEdges"><rect x="3" y="1" width="10" height="14" fill="#0f172a"/><rect x="4" y="2" width="8" height="12" fill="#334155"/><rect x="5" y="3" width="6" height="4" fill="#38bdf8"/><rect x="5" y="9" width="6" height="4" fill="#0284c7"/><rect x="11" y="8" width="1" height="2" fill="#e2e8f0"/><rect x="3" y="1" width="10" height="1" fill="#38bdf8"/><rect x="3" y="14" width="10" height="1" fill="#38bdf8"/></svg>'
+    )}`,
+    description: '★ Insulated Door ★ Crafted from arctic Everfrost planks with cryogenic thermal seals. Essential for sealing rooms up to 1000 air blocks into enclosed environments to unlock Heater & Cooler Target Temp controls.',
+    maxStack: 64
+  },
+  palm_door: {
+    id: 'palm_door',
+    name: 'Palm Door',
+    type: 'block',
+    blockId: BlockType.PALM_DOOR_BOTTOM,
+    icon: `data:image/svg+xml;utf8,${encodeURIComponent(
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" shape-rendering="crispEdges"><rect x="3" y="1" width="10" height="14" fill="#b45309"/><rect x="5" y="3" width="6" height="4" fill="#78350f"/><rect x="5" y="9" width="6" height="4" fill="#78350f"/><rect x="11" y="8" width="1" height="2" fill="#facc15"/></svg>'
+    )}`,
+    description: 'Desert oasis door milled from golden Palm planks. Right-click to open and close.',
+    maxStack: 64
+  },
+  ghost_door: {
+    id: 'ghost_door',
+    name: 'Ghost Door',
+    type: 'block',
+    blockId: BlockType.GHOST_DOOR_BOTTOM,
+    icon: `data:image/svg+xml;utf8,${encodeURIComponent(
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" shape-rendering="crispEdges"><rect x="3" y="1" width="10" height="14" fill="#cbd5e1"/><rect x="5" y="3" width="6" height="4" fill="#94a3b8"/><rect x="5" y="9" width="6" height="4" fill="#94a3b8"/><rect x="11" y="8" width="1" height="2" fill="#475569"/></svg>'
+    )}`,
+    description: 'Spectral pale door milled from decayed Ghost planks. Right-click to open and close.',
+    maxStack: 64
+  },
+  rainforest_oak_door: {
+    id: 'rainforest_oak_door',
+    name: 'Rainforest Oak Door',
+    type: 'block',
+    blockId: BlockType.RAINFOREST_OAK_DOOR_BOTTOM,
+    icon: `data:image/svg+xml;utf8,${encodeURIComponent(
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" shape-rendering="crispEdges"><rect x="3" y="1" width="10" height="14" fill="#4d5435"/><rect x="5" y="3" width="6" height="4" fill="#3a4025"/><rect x="5" y="9" width="6" height="4" fill="#3a4025"/><rect x="11" y="8" width="1" height="2" fill="#facc15"/></svg>'
+    )}`,
+    description: 'Tropical hardwood door milled from dense Rainforest Oak planks. Right-click to open and close.',
+    maxStack: 64
+  },
+  kapok_door: {
+    id: 'kapok_door',
+    name: 'Kapok Door',
+    type: 'block',
+    blockId: BlockType.KAPOK_DOOR_BOTTOM,
+    icon: `data:image/svg+xml;utf8,${encodeURIComponent(
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" shape-rendering="crispEdges"><rect x="3" y="1" width="10" height="14" fill="#a89078"/><rect x="5" y="3" width="6" height="4" fill="#876f58"/><rect x="5" y="9" width="6" height="4" fill="#876f58"/><rect x="11" y="8" width="1" height="2" fill="#facc15"/></svg>'
+    )}`,
+    description: 'Silky canopy door milled from towering Kapok planks. Right-click to open and close.',
+    maxStack: 64
+  },
+  banyan_door: {
+    id: 'banyan_door',
+    name: 'Banyan Door',
+    type: 'block',
+    blockId: BlockType.BANYAN_DOOR_BOTTOM,
+    icon: `data:image/svg+xml;utf8,${encodeURIComponent(
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" shape-rendering="crispEdges"><rect x="3" y="1" width="10" height="14" fill="#78593a"/><rect x="5" y="3" width="6" height="4" fill="#583f25"/><rect x="5" y="9" width="6" height="4" fill="#583f25"/><rect x="11" y="8" width="1" height="2" fill="#facc15"/></svg>'
+    )}`,
+    description: 'Woven grain door milled from Banyan planks. Right-click to open and close.',
+    maxStack: 64
+  },
+  strangler_door: {
+    id: 'strangler_door',
+    name: 'Strangler Door',
+    type: 'block',
+    blockId: BlockType.STRANGLER_DOOR_BOTTOM,
+    icon: `data:image/svg+xml;utf8,${encodeURIComponent(
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" shape-rendering="crispEdges"><rect x="3" y="1" width="10" height="14" fill="#5c4028"/><rect x="5" y="3" width="6" height="4" fill="#422c18"/><rect x="5" y="9" width="6" height="4" fill="#422c18"/><rect x="11" y="8" width="1" height="2" fill="#facc15"/></svg>'
+    )}`,
+    description: 'Fibrous fibrous door milled from Strangler wood planks. Right-click to open and close.',
+    maxStack: 64
+  },
+  mahogany_door: {
+    id: 'mahogany_door',
+    name: 'Mahogany Door',
+    type: 'block',
+    blockId: BlockType.MAHOGANY_DOOR_BOTTOM,
+    icon: `data:image/svg+xml;utf8,${encodeURIComponent(
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" shape-rendering="crispEdges"><rect x="3" y="1" width="10" height="14" fill="#6b2a1a"/><rect x="5" y="3" width="6" height="4" fill="#4f1c10"/><rect x="5" y="9" width="6" height="4" fill="#4f1c10"/><rect x="11" y="8" width="1" height="2" fill="#facc15"/></svg>'
+    )}`,
+    description: 'Deep reddish-brown fine grain door milled from Mahogany planks. Right-click to open and close.',
+    maxStack: 64
+  },
+  ceiba_door: {
+    id: 'ceiba_door',
+    name: 'Ceiba Door',
+    type: 'block',
+    blockId: BlockType.CEIBA_DOOR_BOTTOM,
+    icon: `data:image/svg+xml;utf8,${encodeURIComponent(
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" shape-rendering="crispEdges"><rect x="3" y="1" width="10" height="14" fill="#75654c"/><rect x="5" y="3" width="6" height="4" fill="#544835"/><rect x="5" y="9" width="6" height="4" fill="#544835"/><rect x="11" y="8" width="1" height="2" fill="#facc15"/></svg>'
+    )}`,
+    description: 'Rugged door milled from buttressed Ceiba planks. Right-click to open and close.',
+    maxStack: 64
+  },
 
   // --- Molds & Metallurgy ---
   mold: {
@@ -922,18 +1078,6 @@ export const ITEM_REGISTRY: Record<string, ItemDef> = {
     maxStack: 1,
     durability: 550
   },
-  ice_pickaxe: {
-    id: 'ice_pickaxe',
-    name: 'Ice Pickaxe',
-    type: 'tool',
-    toolType: 'pickaxe',
-    tier: 5,
-    speed: 7.5,
-    icon: '/ItemSprites/IcePickaxe.png',
-    description: 'Glacial pickaxe honed from packed mountain ice.',
-    maxStack: 1,
-    durability: 650
-  },
   crystalized_coral_pickaxe: {
     id: 'crystalized_coral_pickaxe',
     name: 'Crystalized Coral Pickaxe',
@@ -1106,18 +1250,6 @@ export const ITEM_REGISTRY: Record<string, ItemDef> = {
     maxStack: 1,
     durability: 550
   },
-  ice_hoe: {
-    id: 'ice_hoe',
-    name: 'Ice Hoe',
-    type: 'tool',
-    toolType: 'hoe',
-    tier: 5,
-    speed: 7.5,
-    icon: '/ItemSprites/IceHoe.png',
-    description: 'Glacial farming hoe carved from packed mountain ice.',
-    maxStack: 1,
-    durability: 650
-  },
   crystalized_coral_hoe: {
     id: 'crystalized_coral_hoe',
     name: 'Crystalized Coral Hoe',
@@ -1237,22 +1369,6 @@ export const ITEM_REGISTRY: Record<string, ItemDef> = {
     type: 'utility',
     icon: '/ItemSprites/GoldShovel.png',
     description: 'Forged golden shovel head. Assemble with a wooden plank in the 3x3 grid.',
-    maxStack: 16
-  },
-  ice_pickaxe_head: {
-    id: 'ice_pickaxe_head',
-    name: 'Ice Pickaxe Head',
-    type: 'utility',
-    icon: '/ItemSprites/IcePickaxe.png',
-    description: 'Carved glacial ice pickaxe head. Assemble with a wooden plank in the 3x3 grid.',
-    maxStack: 16
-  },
-  ice_hoe_head: {
-    id: 'ice_hoe_head',
-    name: 'Ice Hoe Head',
-    type: 'utility',
-    icon: '/ItemSprites/IceHoeHead.png',
-    description: 'Glacial ice hoe blade carved from ice. Assemble with a wooden plank in the 3x3 grid.',
     maxStack: 16
   },
   crystalized_coral_pickaxe_head: {
@@ -1412,6 +1528,10 @@ export function getItemForBlock(block: BlockType): ItemDef {
   if (block === BlockType.SAND_FARMLAND) {
     return ITEM_REGISTRY['sand'];
   }
+  if (isDoorBlock(block)) {
+    const doorKey = getDoorItemKey(block);
+    if (ITEM_REGISTRY[doorKey]) return ITEM_REGISTRY[doorKey];
+  }
   // Find registered item with matching blockId
   for (const item of Object.values(ITEM_REGISTRY)) {
     if (item.blockId === block) return item;
@@ -1570,6 +1690,135 @@ export const INVENTORY_CRAFTING_RECIPES: CraftingRecipe[] = [
     station: 'inventory',
     category: 'workstations'
   },
+  {
+    id: 'craft_heater',
+    result: ITEM_REGISTRY['heater'],
+    resultCount: 1,
+    ingredients: [
+      { itemId: 'iron', count: 4 },
+      { itemId: 'furnace', count: 1 },
+      { itemId: 'any_stone', count: 4 }
+    ],
+    station: 'inventory',
+    category: 'workstations'
+  },
+  {
+    id: 'craft_cooler',
+    result: ITEM_REGISTRY['cooler'],
+    resultCount: 1,
+    ingredients: [
+      { itemId: 'iron', count: 4 },
+      { itemId: 'packed_ice', count: 4 },
+      { itemId: 'any_stone', count: 1 }
+    ],
+    station: 'inventory',
+    category: 'workstations'
+  },
+  // Wooden Doors (6 planks per door)
+  {
+    id: 'craft_oak_door',
+    result: ITEM_REGISTRY['oak_door'],
+    resultCount: 1,
+    ingredients: [{ itemId: 'oak_plank', count: 6 }],
+    station: 'inventory',
+    category: 'doors'
+  },
+  {
+    id: 'craft_redwood_door',
+    result: ITEM_REGISTRY['redwood_door'],
+    resultCount: 1,
+    ingredients: [{ itemId: 'redwood_plank', count: 6 }],
+    station: 'inventory',
+    category: 'doors'
+  },
+  {
+    id: 'craft_willow_door',
+    result: ITEM_REGISTRY['willow_door'],
+    resultCount: 1,
+    ingredients: [{ itemId: 'willow_plank', count: 6 }],
+    station: 'inventory',
+    category: 'doors'
+  },
+  {
+    id: 'craft_everfrost_door',
+    result: ITEM_REGISTRY['everfrost_door'],
+    resultCount: 1,
+    ingredients: [{ itemId: 'everfrost_plank', count: 6 }],
+    station: 'inventory',
+    category: 'doors'
+  },
+  {
+    id: 'craft_palm_door',
+    result: ITEM_REGISTRY['palm_door'],
+    resultCount: 1,
+    ingredients: [{ itemId: 'palm_plank', count: 6 }],
+    station: 'inventory',
+    category: 'doors'
+  },
+  {
+    id: 'craft_ghost_door',
+    result: ITEM_REGISTRY['ghost_door'],
+    resultCount: 1,
+    ingredients: [{ itemId: 'ghost_plank', count: 6 }],
+    station: 'inventory',
+    category: 'doors'
+  },
+  {
+    id: 'craft_rainforest_oak_door',
+    result: ITEM_REGISTRY['rainforest_oak_door'],
+    resultCount: 1,
+    ingredients: [{ itemId: 'rainforest_oak_plank', count: 6 }],
+    station: 'inventory',
+    category: 'doors'
+  },
+  {
+    id: 'craft_kapok_door',
+    result: ITEM_REGISTRY['kapok_door'],
+    resultCount: 1,
+    ingredients: [{ itemId: 'kapok_plank', count: 6 }],
+    station: 'inventory',
+    category: 'doors'
+  },
+  {
+    id: 'craft_banyan_door',
+    result: ITEM_REGISTRY['banyan_door'],
+    resultCount: 1,
+    ingredients: [{ itemId: 'banyan_plank', count: 6 }],
+    station: 'inventory',
+    category: 'doors'
+  },
+  {
+    id: 'craft_strangler_door',
+    result: ITEM_REGISTRY['strangler_door'],
+    resultCount: 1,
+    ingredients: [{ itemId: 'strangler_plank', count: 6 }],
+    station: 'inventory',
+    category: 'doors'
+  },
+  {
+    id: 'craft_mahogany_door',
+    result: ITEM_REGISTRY['mahogany_door'],
+    resultCount: 1,
+    ingredients: [{ itemId: 'mahogany_plank', count: 6 }],
+    station: 'inventory',
+    category: 'doors'
+  },
+  {
+    id: 'craft_ceiba_door',
+    result: ITEM_REGISTRY['ceiba_door'],
+    resultCount: 1,
+    ingredients: [{ itemId: 'ceiba_plank', count: 6 }],
+    station: 'inventory',
+    category: 'doors'
+  },
+  {
+    id: 'craft_any_wooden_door',
+    result: ITEM_REGISTRY['oak_door'],
+    resultCount: 1,
+    ingredients: [{ itemId: 'any_plank', count: 6 }],
+    station: 'inventory',
+    category: 'doors'
+  },
   // Basic Wooden Tools (Field Craftable - Only single recipe for each wooden tool)
   {
     id: 'craft_wooden_pickaxe',
@@ -1619,22 +1868,6 @@ export const INVENTORY_CRAFTING_RECIPES: CraftingRecipe[] = [
     ingredients: [{ itemId: 'snow', count: 4 }],
     station: 'inventory',
     category: 'blocks'
-  },
-  {
-    id: 'craft_ice_pickaxe_head',
-    result: ITEM_REGISTRY['ice_pickaxe_head'],
-    resultCount: 1,
-    ingredients: [{ itemId: 'packed_ice', count: 2 }],
-    station: 'inventory',
-    category: 'tools'
-  },
-  {
-    id: 'craft_ice_hoe_head',
-    result: ITEM_REGISTRY['ice_hoe_head'],
-    resultCount: 1,
-    ingredients: [{ itemId: 'packed_ice', count: 2 }],
-    station: 'inventory',
-    category: 'tools'
   }
 ];
 
@@ -1680,17 +1913,6 @@ export const TOOL_CRAFTER_RECIPES: CraftingRecipe[] = [
     resultCount: 1,
     ingredients: [
       { itemId: 'gold_pickaxe_head', count: 1 },
-      { itemId: 'any_plank', count: 1 }
-    ],
-    station: 'tool_crafter',
-    category: 'pickaxes'
-  },
-  {
-    id: 'craft_assemble_ice_pickaxe',
-    result: ITEM_REGISTRY['ice_pickaxe'],
-    resultCount: 1,
-    ingredients: [
-      { itemId: 'ice_pickaxe_head', count: 1 },
       { itemId: 'any_plank', count: 1 }
     ],
     station: 'tool_crafter',
@@ -1895,17 +2117,6 @@ export const TOOL_CRAFTER_RECIPES: CraftingRecipe[] = [
     resultCount: 1,
     ingredients: [
       { itemId: 'gold_hoe_head', count: 1 },
-      { itemId: 'any_plank', count: 1 }
-    ],
-    station: 'tool_crafter',
-    category: 'hoes'
-  },
-  {
-    id: 'craft_assemble_ice_hoe',
-    result: ITEM_REGISTRY['ice_hoe'],
-    resultCount: 1,
-    ingredients: [
-      { itemId: 'ice_hoe_head', count: 1 },
       { itemId: 'any_plank', count: 1 }
     ],
     station: 'tool_crafter',
@@ -2137,11 +2348,25 @@ export function getFuelBurnDuration(item: ItemDef | null | undefined): number {
   ) {
     return 8;
   }
+  // Ice & snow also count as coolant fuel for Cooler
+  if (
+    item.id === 'packed_ice' ||
+    item.blockId === BlockType.PACKED_ICE ||
+    item.id === 'snow' ||
+    item.blockId === BlockType.SNOW
+  ) {
+    return 30;
+  }
   return 0;
 }
 
 export function isFuelItem(item: ItemDef | null | undefined): boolean {
   return getFuelBurnDuration(item) > 0;
+}
+
+export function isDoorItem(item: ItemDef | null | undefined): boolean {
+  if (!item) return false;
+  return item.id.endsWith('_door') || (item.blockId !== undefined && isDoorBlock(item.blockId));
 }
 
 export const FUEL_SOURCE_GUIDE: Array<{ name: string; duration: number; description: string }> = [
@@ -2529,6 +2754,12 @@ export const CRAFTING_STATIONS: Record<string, CraftingStationDef> = {
         name: 'Workstations',
         icon: '/ItemSprites/IronPickaxeHead.png',
         recipes: INVENTORY_CRAFTING_RECIPES.filter((r) => r.category === 'workstations')
+      },
+      {
+        id: 'doors',
+        name: 'Doors',
+        icon: ITEM_REGISTRY['everfrost_door'].icon,
+        recipes: INVENTORY_CRAFTING_RECIPES.filter((r) => r.category === 'doors')
       },
       {
         id: 'blocks',

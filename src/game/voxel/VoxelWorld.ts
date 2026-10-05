@@ -21,6 +21,7 @@ import { propagateFluid, HORIZ_DIRS, FluidSimulation } from './FluidSimulation';
 import { isWaterOrWaterlogged, isWaterloggedPlant } from './WaterFlora';
 import { TileMoistureSystem } from './TileMoistureSystem';
 import type { SeasonWeatherSystem } from '../environment/SeasonWeatherSystem';
+import { ThermalWorkstationManager } from '../environment/ThermalWorkstationManager';
 
 export { Chunk } from './Chunk';
 export { CHUNK_D, CHUNK_H, CHUNK_W, SEA_LEVEL } from './ChunkConstants';
@@ -98,7 +99,10 @@ export class VoxelWorld {
     this.worldUpdateManager = new WorldUpdateManager(this);
     this.fluidSimulation = new FluidSimulation(this);
     this.tileMoistureSystem = new TileMoistureSystem(this);
+    this.thermalWorkstationManager = new ThermalWorkstationManager();
   }
+
+  public thermalWorkstationManager: ThermalWorkstationManager;
 
   public update(delta: number) {
     this.atlas.updateWater(delta);
@@ -186,6 +190,16 @@ export class VoxelWorld {
       this.tileMoistureSystem.onBlockBroken(wx, wy, wz, prevBlock);
     } else {
       this.tileMoistureSystem.onBlockPlaced(wx, wy, wz, type);
+    }
+
+    // Notify ThermalWorkstationManager if Heater or Cooler placed / broken
+    if (type === BlockType.HEATER) {
+      this.thermalWorkstationManager.registerStation(wx, wy, wz, 'heater', this);
+    } else if (type === BlockType.COOLER) {
+      this.thermalWorkstationManager.registerStation(wx, wy, wz, 'cooler', this);
+    }
+    if (prevBlock === BlockType.HEATER || prevBlock === BlockType.COOLER) {
+      this.thermalWorkstationManager.removeStation(wx, wy, wz);
     }
 
     // Propagate fluid dynamics at a fast but not instant rate if water or adjacent to water

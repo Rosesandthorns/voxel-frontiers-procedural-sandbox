@@ -142,6 +142,11 @@ export class SeasonWeatherSystem {
     }
     this.lastTimeOfDay = timeOfDay;
 
+    // Update thermal workstations (burn 1 fuel per day, 5x5 field & room climate)
+    if (world && world.thermalWorkstationManager) {
+      world.thermalWorkstationManager.update(delta, timeDelta, world);
+    }
+
     // Track weather progress throughout the in-game day
     this.weatherProgressDays += timeDelta;
     if (this.weatherProgressDays >= this.weatherDurationDays) {
@@ -306,6 +311,11 @@ export class SeasonWeatherSystem {
    * Deposits or increases topsnow in a column, burying plants if encountered.
    */
   private depositTopsnowAtColumn(world: VoxelWorld, wx: number, wz: number, maxStage: number) {
+    // Prevent snow from gathering if within 5x5 radius of an active Heater or enclosed heated room
+    if (world.thermalWorkstationManager?.isSnowPreventedAt(wx, wz)) {
+      return;
+    }
+
     // Scan down from above player to find the top solid or plant block
     const startY = Math.min(CHUNK_H - 2, Math.max(10, Math.floor(130)));
     for (let wy = startY; wy >= 5; wy--) {
@@ -340,6 +350,11 @@ export class SeasonWeatherSystem {
    * Melts topsnow in a column, restoring any buried plant when stage 1 melts away.
    */
   private meltTopsnowAtColumn(world: VoxelWorld, wx: number, wz: number) {
+    // Prevent snow from melting if within 5x5 radius of an active Cooler or enclosed cooled room
+    if (world.thermalWorkstationManager?.isSnowMeltPreventedAt(wx, wz)) {
+      return;
+    }
+
     const startY = Math.min(CHUNK_H - 2, Math.max(10, Math.floor(130)));
     for (let wy = startY; wy >= 5; wy--) {
       const block = world.getBlock(wx, wy, wz);
