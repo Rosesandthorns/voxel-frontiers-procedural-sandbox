@@ -13,7 +13,7 @@ import { VoxelWorld } from '../game/voxel/VoxelWorld';
 import { SpawnSystem } from '../game/world/SpawnSystem';
 import { isWaterOrWaterlogged } from '../game/voxel/WaterFlora';
 import { getItemForBlock } from '../game/systems/ItemRegistry';
-import { isMoistureSensitiveBlock } from '../game/voxel/Blocks';
+import { isMoistureSensitiveBlock, BLOCK_DEFS } from '../game/voxel/Blocks';
 import { SeasonWeatherSystem } from '../game/environment/SeasonWeatherSystem';
 import { WeatherEffects } from '../game/environment/WeatherEffects';
 import { soundManager } from '../game/audio/SoundFX';
@@ -50,9 +50,15 @@ interface GameCanvasProps {
   ) => void;
   onOpenBestiary: () => void;
   onOpenSettings?: () => void;
+  onPause?: () => void;
   onWorldReady?: (ready: boolean, world?: VoxelWorld) => void;
   onMiningProgress?: (progress: number) => void;
   seasonWeatherSystem?: SeasonWeatherSystem;
+  initialPlayerPos?: { x: number; y: number; z: number } | null;
+  hasEnteredWorld?: boolean;
+  onEnteredWorldChange?: (entered: boolean) => void;
+  saveData?: { season?: Season; dayInSeason?: number } | null;
+  onNewGame?: () => void;
 }
 
 const GameCanvasComponent: React.FC<GameCanvasProps> = ({
@@ -70,17 +76,30 @@ const GameCanvasComponent: React.FC<GameCanvasProps> = ({
   onOpenStation,
   onOpenBestiary,
   onOpenSettings,
+  onPause,
   onWorldReady,
   inventory,
   seasonWeatherSystem: seasonWeatherSystemProp,
   onUpdateInventory,
-  onMiningProgress
+  onMiningProgress,
+  initialPlayerPos,
+  hasEnteredWorld: hasEnteredWorldProp,
+  onEnteredWorldChange,
+  saveData,
+  onNewGame
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [isLocked, setIsLocked] = useState(false);
-  const [hasEnteredWorld, setHasEnteredWorld] = useState(false);
-  const hasEnteredWorldRef = useRef(false);
+  const [hasEnteredWorld, setHasEnteredWorld] = useState(hasEnteredWorldProp ?? false);
+  const hasEnteredWorldRef = useRef(hasEnteredWorldProp ?? false);
   const wasPausedRef = useRef<boolean>(isPaused);
+
+  useEffect(() => {
+    if (hasEnteredWorldProp !== undefined) {
+      setHasEnteredWorld(hasEnteredWorldProp);
+      hasEnteredWorldRef.current = hasEnteredWorldProp;
+    }
+  }, [hasEnteredWorldProp]);
 
   const defaultSeasonWeatherRef = useRef<SeasonWeatherSystem | null>(null);
   if (!defaultSeasonWeatherRef.current) {
@@ -92,6 +111,7 @@ const GameCanvasComponent: React.FC<GameCanvasProps> = ({
     if (!hasEnteredWorldRef.current) {
       hasEnteredWorldRef.current = true;
       setHasEnteredWorld(true);
+      onEnteredWorldChange?.(true);
     }
   };
 
@@ -130,16 +150,6 @@ const GameCanvasComponent: React.FC<GameCanvasProps> = ({
       markEnteredWorld();
       if (document.pointerLockElement) {
         document.exitPointerLock();
-      }
-    } else if (wasPaused) {
-      // Returning from menu or tool workbench: re-request pointer lock without showing pause overlay
-      try {
-        const p = rendererRef.current?.domElement?.requestPointerLock?.() as unknown as Promise<void> | undefined;
-        if (p && typeof p.catch === 'function') {
-          p.catch(() => {});
-        }
-      } catch {
-        // Ignore if browser defers pointer lock until next click
       }
     }
   }, [isPaused]);
@@ -186,6 +196,9 @@ const GameCanvasComponent: React.FC<GameCanvasProps> = ({
     // No shadow maps — every shadow-casting voxel mesh would need a shadow pass
     // which would more than halve the frame rate.
     renderer.shadowMap.enabled = false;
+    renderer.domElement.id = 'voxel-canvas';
+    renderer.domElement.tabIndex = 0;
+    renderer.domElement.style.outline = 'none';
     renderer.domElement.style.display = 'block';
     renderer.domElement.style.position = 'absolute';
     renderer.domElement.style.top = '0';
@@ -216,7 +229,28 @@ const GameCanvasComponent: React.FC<GameCanvasProps> = ({
     };
 
     // 3. Safe Spawn Resolution & Player Placement (immediate in <1ms)
-    const spawnPoint = SpawnSystem.findSafeSpawn(world);
+    let spawnPoint: { x: number; y: number; z: number };
+
+    if (initialPlayerPos && initialPlayerPos.y >= 50) {
+      // If a saved position is passed, ensure its chunk exists and verify player isn't inside solid rock
+      const cx = Math.floor(initialPlayerPos.x / 16);
+      const cz = Math.floor(initialPlayerPos.z / 16);
+      world.generateChunkSync(cx, cz);
+
+      const feet = world.getBlock(Math.floor(initialPlayerPos.x), Math.floor(initialPlayerPos.y), Math.floor(initialPlayerPos.z));
+      const head = world.getBlock(Math.floor(initialPlayerPos.x), Math.floor(initialPlayerPos.y + 1), Math.floor(initialPlayerPos.z));
+      const feetDef = BLOCK_DEFS[feet];
+      const headDef = BLOCK_DEFS[head];
+
+      if ((!feetDef || !feetDef.solid) && (!headDef || !headDef.solid)) {
+        spawnPoint = initialPlayerPos;
+      } else {
+        spawnPoint = SpawnSystem.findSafeSpawn(world, initialPlayerPos.x, initialPlayerPos.z);
+      }
+    } else {
+      spawnPoint = SpawnSystem.findSafeSpawn(world);
+    }
+
     const player = new PlayerController(camera, world);
     player.pos.set(spawnPoint.x, spawnPoint.y, spawnPoint.z);
     player.updateCamera();
@@ -301,6 +335,9 @@ const GameCanvasComponent: React.FC<GameCanvasProps> = ({
       onOpenSettings: () => {
         markEnteredWorld();
         onOpenSettings?.();
+      },
+      onPause: () => {
+        onPause?.();
       },
       onDiscoveryBanner,
       onPointerLockChange: (locked) => {
@@ -567,6 +604,8 @@ const GameCanvasComponent: React.FC<GameCanvasProps> = ({
       {/* Click-to-Play Pointer Lock Overlay (only on initial entry, never when opening/closing menu or workbench) */}
       {isWorldReady && !hasEnteredWorld && !isLocked && !isPaused && (
         <ClickToPlayOverlay
+          saveData={saveData}
+          onNewGame={onNewGame}
           onEnter={() => {
             markEnteredWorld();
             if (rendererRef.current?.domElement) {

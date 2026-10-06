@@ -140,16 +140,16 @@ export class CropGrowthManager {
 
     // 4. Soil Requirements (Farmland / Sand Farmland)
     const isTilled = soilBlock === BlockType.FARMLAND || soilBlock === BlockType.SAND_FARMLAND;
-    if (crop.needs.tilled && !isTilled) {
+    if (!isTilled) {
       isGood = false;
       reasons.push('Requires tilled soil (Farmland)');
     }
 
     if (crop.needs.desertSandOnly) {
-      const isSand = soilBlock === BlockType.SAND || soilBlock === BlockType.SAND_FARMLAND;
-      if (!isSand) {
+      const isSandTilled = soilBlock === BlockType.SAND_FARMLAND;
+      if (!isSandTilled) {
         isGood = false;
-        reasons.push('Requires desert sand soil');
+        reasons.push('Requires tilled desert sand (Sand Farmland)');
       }
     }
 

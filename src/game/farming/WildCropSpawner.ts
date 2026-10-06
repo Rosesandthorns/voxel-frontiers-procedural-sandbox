@@ -52,16 +52,16 @@ export function getWildCropAt(
     surfaceBlock === BlockType.BEACH_GRAVEL;
 
   if (isCoastOrCliff) {
-    // Sea cliff wild cabbage on chalk or limestone (frequency ~2.5%)
-    if ((surfaceBlock === BlockType.CHALK || surfaceBlock === BlockType.LIMESTONE) && spawnChance < 0.025) {
+    // Sea cliff wild cabbage on chalk or limestone (rare spawn)
+    if ((surfaceBlock === BlockType.CHALK || surfaceBlock === BlockType.LIMESTONE) && spawnChance < 0.003) {
       return CROP_BLOCK_IDS.WILD_SEA_CABBAGE;
     }
-    // Shorelines: Wild beets on beach gravel or shoreline sand
-    if (surfaceBlock === BlockType.BEACH_GRAVEL && spawnChance < 0.022) {
+    // Shorelines: Wild beets on beach gravel or shoreline sand (rare spawn)
+    if (surfaceBlock === BlockType.BEACH_GRAVEL && spawnChance < 0.003) {
       return CROP_BLOCK_BUNDLES.get('beets')?.mature || null;
     }
-    // Dunes: Wild asparagus on sandy dunes
-    if (surfaceBlock === BlockType.SAND && spawnChance < 0.02) {
+    // Dunes: Wild asparagus on sandy dunes (rare spawn)
+    if (surfaceBlock === BlockType.SAND && spawnChance < 0.0025) {
       return CROP_BLOCK_BUNDLES.get('asparagus')?.mature || null;
     }
   }
@@ -75,7 +75,7 @@ export function getWildCropAt(
     subBiome.category === 'river';
 
   if (isWetland) {
-    if (spawnChance < 0.03) {
+    if (spawnChance < 0.0035) {
       if (selector < 0.28) return CROP_BLOCK_BUNDLES.get('rice')?.mature || null;
       if (selector < 0.55) return CROP_BLOCK_BUNDLES.get('cranberries')?.mature || null;
       if (selector < 0.80) return CROP_BLOCK_BUNDLES.get('celery')?.mature || null;
@@ -95,7 +95,7 @@ export function getWildCropAt(
     subBiome.category === 'arctic';
 
   if (isColdOrMountain) {
-    if (spawnChance < 0.028) {
+    if (spawnChance < 0.0035) {
       if (selector < 0.20) return CROP_BLOCK_BUNDLES.get('potatoes')?.mature || null;
       if (selector < 0.36) return CROP_BLOCK_BUNDLES.get('rhubarb')?.mature || null;
       if (selector < 0.50) return CROP_BLOCK_BUNDLES.get('horseradish')?.mature || null;
@@ -117,7 +117,7 @@ export function getWildCropAt(
     surfaceBlock === BlockType.SAND;
 
   if (isWarmAndDry) {
-    if (spawnChance < 0.025) {
+    if (spawnChance < 0.003) {
       // Desert sand exclusive cactus fruit
       if (surfaceBlock === BlockType.SAND && selector < 0.22) {
         return CROP_BLOCK_BUNDLES.get('cactus_fruit')?.mature || null;
@@ -149,7 +149,7 @@ export function getWildCropAt(
     subBiome.id === 'willow_bayou';
 
   if (isForest) {
-    if (spawnChance < 0.026) {
+    if (spawnChance < 0.003) {
       // Conifer forest acidic soil blueberries
       const isConifer = subBiome.id === 'redwood_giants' || params.temperature < 0;
       if (isConifer && selector < 0.35) {
@@ -169,16 +169,16 @@ export function getWildCropAt(
   // Wild carrots, turnips, radishes, peas, lettuce
   // Wild onions, garlic, leeks (grow in clumps on grassy slopes)
   if (subBiome.category === 'verdant' || surfaceBlock === BlockType.GRASS) {
-    // Clumps of wild onions, garlic, and leeks on grassy slopes
+    // Clumps of wild onions, garlic, and leeks on grassy slopes (much rarer)
     const slopeNoise = hash2(Math.floor(wx / 4), Math.floor(wz / 4), 5432);
-    if (slopeNoise > 0.88 && spawnChance < 0.12) {
+    if (slopeNoise > 0.96 && spawnChance < 0.015) {
       const clumpSel = hash2(wx, wz, 777);
       if (clumpSel < 0.35) return CROP_BLOCK_BUNDLES.get('onions')?.mature || null;
       if (clumpSel < 0.70) return CROP_BLOCK_BUNDLES.get('garlic')?.mature || null;
       return CROP_BLOCK_BUNDLES.get('leeks')?.mature || null;
     }
 
-    if (spawnChance < 0.024) {
+    if (spawnChance < 0.003) {
       if (selector < 0.12) return CROP_BLOCK_BUNDLES.get('wheat')?.mature || null;
       if (selector < 0.22) return CROP_BLOCK_BUNDLES.get('barley')?.mature || null;
       if (selector < 0.32) return CROP_BLOCK_BUNDLES.get('oats')?.mature || null;

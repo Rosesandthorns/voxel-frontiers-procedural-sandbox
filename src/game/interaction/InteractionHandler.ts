@@ -53,6 +53,7 @@ export interface InteractionHandlerCallbacks {
   ) => void;
   onOpenBestiary: () => void;
   onOpenSettings?: () => void;
+  onPause?: () => void;
   onDiscoveryBanner: (banner: { title: string; subtitle: string } | null) => void;
   onPointerLockChange: (isLocked: boolean) => void;
   onMiningProgress?: (progress: number) => void;
@@ -86,6 +87,7 @@ export class InteractionHandler {
   private lostTargetTimer: number = 0;
   private pendingTarget: MiningTarget | null = null;
   private pendingTargetTimer: number = 0;
+  private wasPointerLocked: boolean = false;
 
   // Event handlers
   private handlePointerLockChange: () => void;
@@ -101,9 +103,17 @@ export class InteractionHandler {
     this.callbacks = callbacks;
 
     this.handlePointerLockChange = () => {
-      this.callbacks.onPointerLockChange(document.pointerLockElement === this.dom);
-      if (document.pointerLockElement !== this.dom) {
+      const isLocked = document.pointerLockElement === this.dom;
+      const previouslyLocked = this.wasPointerLocked;
+      this.wasPointerLocked = isLocked;
+      this.callbacks.onPointerLockChange(isLocked);
+
+      if (!isLocked) {
         this.resetMining();
+        // If pointer lock was lost while actively in gameplay (e.g. Escape key consumed by browser), trigger pause!
+        if (previouslyLocked && !this.callbacks.isPaused?.()) {
+          this.callbacks.onPause?.();
+        }
       }
     };
 
@@ -434,7 +444,7 @@ export class InteractionHandler {
             return;
           }
 
-          // 3. Planting seeds on soil / farmland / sand
+          // 3. Planting seeds: MUST be tilled ground (Farmland or Sand Farmland), not any ground!
           if (activeItem && activeItem.id.endsWith('_seed')) {
             const cropId = activeItem.id.replace('_seed', '');
             const bundle = CROP_BLOCK_BUNDLES.get(cropId);
@@ -446,10 +456,15 @@ export class InteractionHandler {
               const targetCurrent = world.getBlock(placeX, placeY, placeZ);
               if (targetCurrent === BlockType.AIR || targetCurrent === BlockType.WATER) {
                 const soilBlock = world.getBlock(placeX, placeY - 1, placeZ);
-                const isFarmland = soilBlock === BlockType.FARMLAND || soilBlock === BlockType.SAND_FARMLAND;
+                const isTilled = soilBlock === BlockType.FARMLAND || soilBlock === BlockType.SAND_FARMLAND;
 
-                // Validate if soil is adequate for planting
-                if (!bundle.crop.needs.tilled || isFarmland) {
+                // Validate if soil is adequate for planting: MUST be tilled ground
+                if (isTilled) {
+                  // For crops requiring desert sand specifically, ensure the tilled ground is Sand Farmland
+                  if (bundle.crop.needs.desertSandOnly && soilBlock !== BlockType.SAND_FARMLAND) {
+                    return;
+                  }
+
                   world.setBlock(placeX, placeY, placeZ, bundle.sprout);
                   soundManager.playStep('earth');
                   soundManager.playChime(480);
@@ -468,6 +483,8 @@ export class InteractionHandler {
                 }
               }
             }
+            // Seeds can only be planted on tilled ground; return to prevent placing as a regular block
+            return;
           }
 
           // Right-click ground with a Hoe: Till the ground into Farmland / Sand Farmland!
@@ -762,6 +779,13 @@ export class InteractionHandler {
     this.handleKeyDown = (e: KeyboardEvent) => {
       if (this.callbacks.isPaused?.()) return;
 
+      if (e.code === 'Escape' || e.code === 'KeyP') {
+        this.callbacks.onPause?.();
+        if (document.pointerLockElement) {
+          document.exitPointerLock();
+        }
+        return;
+      }
       if (e.code === 'KeyE') {
         this.callbacks.onOpenStation ? this.callbacks.onOpenStation('inventory') : this.callbacks.onOpenInventory();
         if (document.pointerLockElement) {

@@ -25,31 +25,14 @@ export const TRELLIS_ITEM: ItemDef = {
 };
 CROP_ITEMS_MAP['trellis'] = TRELLIS_ITEM;
 
-// Add crafting recipe for Trellis: 2 of any Planks = 2 Garden Trellises
-const plankItemIds = [
-  'oak_plank',
-  'redwood_plank',
-  'willow_plank',
-  'everfrost_plank',
-  'palm_plank',
-  'ghost_plank',
-  'rainforest_oak_plank',
-  'kapok_plank',
-  'banyan_plank',
-  'strangler_plank',
-  'mahogany_plank',
-  'ceiba_plank'
-];
-
-plankItemIds.forEach(plankId => {
-  CROP_FARMING_RECIPES.push({
-    id: `craft_trellis_from_${plankId}`,
-    result: TRELLIS_ITEM,
-    resultCount: 2,
-    ingredients: [{ itemId: plankId, count: 2 }],
-    station: 'inventory',
-    category: 'farming'
-  });
+// Add crafting recipe for Trellis: 2 of any Planks = 1 Garden Trellis
+CROP_FARMING_RECIPES.push({
+  id: 'craft_trellis',
+  result: TRELLIS_ITEM,
+  resultCount: 1,
+  ingredients: [{ itemId: 'any_plank', count: 2 }],
+  station: 'inventory',
+  category: 'farming'
 });
 
 // Register all 54 crop seed packets and food items
@@ -66,7 +49,7 @@ CROP_CONFIGS.forEach(crop => {
     type: 'utility',
     blockId: sproutBlock,
     icon: '', // resolved dynamically by getItemIcon
-    description: `Plant in ${crop.seasons.join('/')} on ${crop.needs.tilled ? 'tilled soil' : 'soil'}. Water ${crop.minWater}–${crop.maxWater}, Temp ${crop.allowedTemps.join('/')}. ${crop.needs.notes || ''}`,
+    description: `Plant in ${crop.seasons.join('/')} on tilled ground. Water ${crop.minWater}–${crop.maxWater}, Temp ${crop.allowedTemps.join('/')}. ${crop.needs.notes || ''}`,
     maxStack: 64
   };
 
