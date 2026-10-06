@@ -1,12 +1,21 @@
 import * as THREE from 'three';
 import { BlockDef, BlockType } from '../../types';
 import { BLOCK_DEFS, isFlintBlock, isWaterBlock, getWaterLevel, isTopsnow, getTopsnowHeight, getTopsnowStage, isPlantBlock, isDoorOpen } from './Blocks';
+import '../farming/CropBlocks';
 import { Chunk } from './Chunk';
 import { CHUNK_D, CHUNK_H, CHUNK_W, CUBE_FACES, SEA_LEVEL } from './ChunkConstants';
 import { TextureAtlas } from './TextureAtlas';
 import { isWaterFaceCulled, isWaterloggedPlant } from './WaterFlora';
 import { meshFlintNodule, AddFlintQuadFn } from './FlintNoduleGeometry';
 import { isMoistureSensitiveBlock, getMoistureColorMultiplier } from './TileMoistureSystem';
+
+function isBlockOpaque(b: BlockType): boolean {
+  if (b === BlockType.AIR) return false;
+  if (isPlantBlock(b)) return false;
+  const d = (BLOCK_DEFS as Record<number, BlockDef>)[b];
+  if (!d) return false;
+  return Boolean(d.solid && !d.transparent);
+}
 
 // Pre-allocate worst-case buffers once at module load — never allocated again.
 // A 16×160×16 chunk has 40960 voxels; each voxel can expose at most 6 faces × 4 verts.
@@ -177,14 +186,13 @@ export class ChunkMesher {
             const leftB  = chunk.voxels[(x - 1) + zOffset + yOffset];
             const frontB = chunk.voxels[x + (z + 1) * CHUNK_W + yOffset];
             const backB  = chunk.voxels[x + (z - 1) * CHUNK_W + yOffset];
-            const blockDefsRec = BLOCK_DEFS as Record<number, BlockDef>;
             if (
-              !blockDefsRec[topB]?.transparent &&
-              !blockDefsRec[btmB]?.transparent &&
-              !blockDefsRec[rightB]?.transparent &&
-              !blockDefsRec[leftB]?.transparent &&
-              !blockDefsRec[frontB]?.transparent &&
-              !blockDefsRec[backB]?.transparent
+              isBlockOpaque(topB) &&
+              isBlockOpaque(btmB) &&
+              isBlockOpaque(rightB) &&
+              isBlockOpaque(leftB) &&
+              isBlockOpaque(frontB) &&
+              isBlockOpaque(backB)
             ) continue;
           }
 

@@ -1,6 +1,6 @@
 {
-  "name": "",
-  "description": "",
+  "name": "Voxel Frontiers: Procedural Sandbox",
+  "description": "A procedural voxel sandbox exploration, crafting, and building game in Three.js and React.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

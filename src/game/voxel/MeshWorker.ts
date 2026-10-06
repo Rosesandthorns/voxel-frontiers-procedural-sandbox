@@ -7,11 +7,20 @@
  */
 
 import { BlockDef, BlockType } from '../../types';
-import { BLOCK_DEFS, isFlintBlock, isWaterBlock, getWaterLevel, isTopsnow, getTopsnowHeight, getTopsnowStage, isDoorOpen } from './Blocks';
+import { BLOCK_DEFS, isFlintBlock, isWaterBlock, getWaterLevel, isTopsnow, getTopsnowHeight, getTopsnowStage, isDoorOpen, isPlantBlock } from './Blocks';
+import '../farming/CropBlocks';
 import { CHUNK_D, CHUNK_H, CHUNK_W, CUBE_FACES } from './ChunkConstants';
 import { isWaterFaceCulled, isWaterloggedPlant } from './WaterFlora';
 import { meshFlintNodule, AddFlintQuadFn } from './FlintNoduleGeometry';
 import { isMoistureSensitiveBlock, getMoistureColorMultiplier } from './TileMoistureSystem';
+
+function isBlockOpaque(b: BlockType): boolean {
+  if (b === BlockType.AIR) return false;
+  if (isPlantBlock(b)) return false;
+  const d = (BLOCK_DEFS as Record<number, BlockDef>)[b];
+  if (!d) return false;
+  return Boolean(d.solid && !d.transparent);
+}
 
 // Maximum vertices per chunk (safe worst case)
 const MAX_VERTS = 40960 * 3;
@@ -217,14 +226,13 @@ function meshChunk(req: MeshRequest): MeshResult {
           const leftB = voxels[(x - 1) + zOffset + yOffset];
           const frontB = voxels[x + (z + 1) * CHUNK_W + yOffset];
           const backB = voxels[x + (z - 1) * CHUNK_W + yOffset];
-          const blockDefsRec = BLOCK_DEFS as Record<number, BlockDef>;
           if (
-            !blockDefsRec[topB]?.transparent &&
-            !blockDefsRec[btmB]?.transparent &&
-            !blockDefsRec[rightB]?.transparent &&
-            !blockDefsRec[leftB]?.transparent &&
-            !blockDefsRec[frontB]?.transparent &&
-            !blockDefsRec[backB]?.transparent
+            isBlockOpaque(topB) &&
+            isBlockOpaque(btmB) &&
+            isBlockOpaque(rightB) &&
+            isBlockOpaque(leftB) &&
+            isBlockOpaque(frontB) &&
+            isBlockOpaque(backB)
           ) continue;
         }
 
