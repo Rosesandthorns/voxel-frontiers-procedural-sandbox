@@ -1,4 +1,4 @@
-import { BlockSoundCategory, ItemDef, WeatherType, BiomeType } from '../../types';
+import { BlockSoundCategory, ItemDef, WeatherType, BiomeType, WorldSettings } from '../../types';
 import { VerdantSubBiomeDef } from '../voxel/SubBiomeTypes';
 import { SEA_LEVEL, CHUNK_H } from '../voxel/ChunkConstants';
 import { isLeavesBlock } from '../voxel/Blocks';
@@ -30,6 +30,12 @@ export class SoundFX {
   private compressor: DynamicsCompressorNode | null = null;
   private pinkNoiseBuffer: AudioBuffer | null = null;
   public isMuted: boolean = false;
+  private volumeSettings = {
+    master: 0.8,
+    ambient: 0.8,
+    effects: 0.8,
+    footsteps: 0.8
+  };
 
   // Track last procedural step sources so we can cut them if player stops mid-sound
   private _lastStepSources: AudioScheduledSourceNode[] = [];
@@ -67,7 +73,7 @@ export class SoundFX {
         this.compressor.release.setValueAtTime(0.12, this.ctx.currentTime);
 
         this.masterGain = this.ctx.createGain();
-        this.masterGain.gain.setValueAtTime(0.75, this.ctx.currentTime);
+        this.masterGain.gain.setValueAtTime(this.volumeSettings.master, this.ctx.currentTime);
 
         this.masterGain.connect(this.compressor);
         this.compressor.connect(this.ctx.destination);
@@ -97,6 +103,30 @@ export class SoundFX {
     if (this.ctx && this.ctx.state === 'suspended') {
       this.ctx.resume();
     }
+  }
+
+  public applySettings(settings: Pick<WorldSettings, 'soundVolume' | 'ambientVolume' | 'effectsVolume' | 'footstepsVolume'>) {
+    this.volumeSettings = {
+      master: settings.soundVolume,
+      ambient: settings.ambientVolume,
+      effects: settings.effectsVolume,
+      footsteps: settings.footstepsVolume
+    };
+    if (this.masterGain && this.ctx) {
+      this.masterGain.gain.setTargetAtTime(this.volumeSettings.master, this.ctx.currentTime, 0.02);
+    }
+  }
+
+  private ambientGain(value: number): number {
+    return value * this.volumeSettings.ambient;
+  }
+
+  private effectsGain(value: number): number {
+    return value * this.volumeSettings.effects;
+  }
+
+  private footstepsGain(value: number): number {
+    return value * this.volumeSettings.footsteps;
   }
 
   private loadAudioBuffer(key: string, url: string): Promise<AudioBuffer | null> {
@@ -316,7 +346,7 @@ export class SoundFX {
 
     const gain = this.ctx.createGain();
     gain.gain.setValueAtTime(0.0001, now);
-    gain.gain.linearRampToValueAtTime(targetVol, now + 0.04);
+    gain.gain.linearRampToValueAtTime(this.footstepsGain(targetVol), now + 0.04);
 
     src.connect(gain);
     gain.connect(this.masterGain);
@@ -388,7 +418,7 @@ export class SoundFX {
       'rainfall',
       rainfallUrl,
       rainTargetVol > 0.01,
-      rainTargetVol,
+      this.ambientGain(rainTargetVol),
       0.35, // start offset to skip quiet leader
       undefined,
       0.8 // fade duration
@@ -409,7 +439,7 @@ export class SoundFX {
       'snowstorm',
       snowstormUrl,
       snowTargetVol > 0.01,
-      snowTargetVol,
+      this.ambientGain(snowTargetVol),
       0.5,
       82.5, // Loops as soon as the sound dies out at 82.5s!
       0.8
@@ -421,7 +451,7 @@ export class SoundFX {
       'swim',
       swimUrl,
       swimTargetVol > 0.01,
-      swimTargetVol,
+      this.ambientGain(swimTargetVol),
       0.0,
       undefined,
       0.25 // Fast responsive fade
@@ -461,7 +491,7 @@ export class SoundFX {
       'ocean',
       oceanUrl,
       oceanTargetVol > 0.01,
-      oceanTargetVol,
+      this.ambientGain(oceanTargetVol),
       4.65, // Starts at 4.65s to skip the 4.6s of silence at the beginning!
       undefined,
       0.8
@@ -1423,7 +1453,7 @@ export class SoundFX {
 
     const gain = this.ctx.createGain();
     // Balanced to match the exact perceived sound level of pickup
-    gain.gain.setValueAtTime(isMetal ? 0.085 : 0.055, now);
+    gain.gain.setValueAtTime(this.effectsGain(isMetal ? 0.085 : 0.055), now);
 
     src.connect(gain);
     gain.connect(this.masterGain);
@@ -1459,7 +1489,7 @@ export class SoundFX {
 
     const gain = this.ctx.createGain();
     // Gentle, pleasant, unobtrusive volume
-    gain.gain.setValueAtTime(0.5, now);
+    gain.gain.setValueAtTime(this.effectsGain(0.5), now);
 
     src.connect(gain);
     gain.connect(this.masterGain);
@@ -1483,7 +1513,7 @@ export class SoundFX {
     src.playbackRate.value = 0.97 + Math.random() * 0.06;
 
     const gain = this.ctx.createGain();
-    gain.gain.setValueAtTime(1.1, now);
+    gain.gain.setValueAtTime(this.effectsGain(1.1), now);
 
     src.connect(gain);
     gain.connect(this.masterGain);
@@ -1528,7 +1558,7 @@ export class SoundFX {
     const gain1 = this.ctx.createGain();
     osc1.type = 'sine';
     osc1.frequency.setValueAtTime(freq, now);
-    gain1.gain.setValueAtTime(0.18, now);
+    gain1.gain.setValueAtTime(this.effectsGain(0.18), now);
     gain1.gain.exponentialRampToValueAtTime(0.0005, now + 0.55);
     osc1.connect(gain1);
     gain1.connect(this.masterGain);
@@ -1537,7 +1567,7 @@ export class SoundFX {
     const gain2 = this.ctx.createGain();
     osc2.type = 'sine';
     osc2.frequency.setValueAtTime(freq * 2, now);
-    gain2.gain.setValueAtTime(0.04, now);
+    gain2.gain.setValueAtTime(this.effectsGain(0.04), now);
     gain2.gain.exponentialRampToValueAtTime(0.0005, now + 0.35);
     osc2.connect(gain2);
     gain2.connect(this.masterGain);

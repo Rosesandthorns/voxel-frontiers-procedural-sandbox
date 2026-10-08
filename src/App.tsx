@@ -104,7 +104,7 @@ export default function App() {
 
   // World Settings & Season System
   const [settings, setSettings] = useState<WorldSettings>(() =>
-    initialSave?.settings || DEFAULT_WORLD_SETTINGS
+    ({ ...DEFAULT_WORLD_SETTINGS, ...(initialSave?.settings || {}) })
   );
   const [seasonWeatherSystem] = useState(() => {
     const sys = new SeasonWeatherSystem();
@@ -120,6 +120,10 @@ export default function App() {
   const handleUpdateSettings = (newSettings: Partial<WorldSettings>) => {
     setSettings((prev) => ({ ...prev, ...newSettings }));
   };
+
+  useEffect(() => {
+    soundManager.applySettings(settings);
+  }, [settings]);
 
   const handleReseedWorld = () => {
     setIsWorldReady(false);
@@ -144,6 +148,13 @@ export default function App() {
       }
     }
   }, []);
+
+  const resumeGameplayPointerLockAfterMenuCloses = useCallback(() => {
+    window.setTimeout(() => {
+      resumeGameplayPointerLock();
+      window.requestAnimationFrame(() => resumeGameplayPointerLock());
+    }, 0);
+  }, [resumeGameplayPointerLock]);
 
   const prevModalOpenRef = useRef<boolean>(isModalOpen);
   useEffect(() => {
@@ -213,20 +224,8 @@ export default function App() {
   const handleResume = useCallback(() => {
     lastPauseToggleRef.current = performance.now();
     setIsPauseScreenOpen(false);
-
-    const canvas = (document.getElementById('voxel-canvas') as HTMLCanvasElement | null) || document.querySelector('canvas');
-    if (canvas && document.pointerLockElement !== canvas) {
-      try {
-        canvas.focus();
-        const p = canvas.requestPointerLock?.() as unknown as Promise<void> | undefined;
-        if (p && typeof p.catch === 'function') {
-          p.catch(() => {});
-        }
-      } catch {
-        // Ignore if browser defers pointer lock
-      }
-    }
-  }, []);
+    resumeGameplayPointerLockAfterMenuCloses();
+  }, [resumeGameplayPointerLockAfterMenuCloses]);
 
   const handleOpenSettingsFromPause = useCallback(() => {
     setOpenedSettingsFromPause(true);

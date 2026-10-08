@@ -358,5 +358,8 @@ export interface WorldSettings {
   enableThirdPerson: boolean;
   enableFlight: boolean;
   soundVolume: number;
+  ambientVolume: number;
+  effectsVolume: number;
+  footstepsVolume: number;
   timeOfDay: number; // 0.0 to 1.0 (0.25 = sunrise, 0.5 = noon, 0.75 = sunset, 0.0/1.0 = midnight)
 }
