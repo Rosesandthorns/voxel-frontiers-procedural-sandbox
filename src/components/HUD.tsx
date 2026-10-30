@@ -7,7 +7,7 @@ export function HUD({ hunger=100,oxygen=20,health = 20, maxHealth = 20, stamina 
   return <div className="game-hud">
     <div className="crosshair" aria-hidden="true">+</div>
     {miningProgress > 0 && <progress className="mining-progress" aria-label="Mining" max={1} value={miningProgress}/>}
-    <div className="hud-bottom"><div className="vitals"><VitalMeter name="Health" value={health} max={maxHealth} color="#bd6758"/><VitalMeter name="Hunger" value={hunger} max={100} color="#c8b365"/>{oxygen<20&&<VitalMeter name="Breath" value={oxygen} max={20} color="#78b6c5"/>}</div>
+    <div className="hud-bottom"><div className="vitals">{oxygen<20&&<div className="breath-row"><VitalMeter name="Breath" value={oxygen} max={20} color="#78b6c5"/></div>}<VitalMeter name="Health" value={health} max={maxHealth} color="#bd6758"/><VitalMeter name="Hunger" value={hunger} max={100} color="#c8b365"/></div>
       <div className="hotbar">{hotbar.map((slot, i) => <button key={i} aria-label={`${i + 1}: ${slot.item?.name ?? 'Empty'}`} aria-pressed={i === selectedHotbarIndex} className={i === selectedHotbarIndex ? 'selected' : ''} onClick={() => onSelectHotbar(i)}><small>{i + 1}</small><ItemIcon item={slot.item}/>{slot.count > 1 && <b>{slot.count}</b>}</button>)}</div>
       <div className="held-item">{hotbar[selectedHotbarIndex]?.item?.name ?? '\u00a0'}</div>
     </div>

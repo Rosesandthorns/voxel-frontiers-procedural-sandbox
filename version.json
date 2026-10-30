@@ -1,10 +1,9 @@
 {
-  "version": "0.3.2",
-  "updateName": "Slime rework and world polish",
+  "version": "0.3.3",
+  "updateName": "Flight and HUD fixes",
   "updateFeatures": [
-    "Reworked jelly slimes with an open O mouth, matched color cores and squash/stretch animation",
-    "Refined creature models, textures, obstacle avoidance and safer collision",
-    "Structures reserve clearings before trees and vegetation",
-    "Detailed houses and fortresses, with original generation-5 layouts preserved"
+    "Menu and launcher show the actual running game version",
+    "Oxygen appears above health and hunger without shifting the HUD",
+    "Seagulls take off, fly, flap their wings and land again"
   ]
 }

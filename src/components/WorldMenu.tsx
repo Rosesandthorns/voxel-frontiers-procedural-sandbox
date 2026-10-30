@@ -1,3 +1,4 @@
+import { version as gameVersion } from '../../package.json';
 import {VersionsPanel} from './VersionsPanel';
 
 import {ServersPanel} from './ServersPanel';
@@ -82,7 +83,7 @@ export function WorldMenu({ onSelect }: { onSelect: (id: string) => void }) {
 
       {error && <p className="world-error" role="alert">{error}</p>}
 
-    </main><span className="menu-edition">{window.desktop ? 'DESKTOP EDITION' : 'LOCAL PREVIEW'} · 0.2.10</span>
+    </main><span className="menu-edition">{window.desktop ? 'DESKTOP EDITION' : 'LOCAL PREVIEW'} · {gameVersion}</span>
 
     {settingsOpen && <SettingsModal settings={settings} onUpdateSettings={s => setSettings(v => ({...v,...s}))} onReseedWorld={() => {}} onClose={() => setSettingsOpen(false)}/>}
 

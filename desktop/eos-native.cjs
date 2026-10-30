@@ -30,7 +30,7 @@ function createEOS(config,{dllPath=path.join(__dirname,'native','EOSSDK-Win64-Sh
  let logCallback=null;
  const check=(result)=>{if(result!==0)throw new Error(f.EResult_ToString(result));};
  if(initialized)throw new Error('EOS is already running.');
- debug('SDK initialize');check(f.Initialize({ApiVersion:5,ProductName:'Biome',ProductVersion:'0.2.10'}));initialized=true;
+ debug('SDK initialize');check(f.Initialize({ApiVersion:5,ProductName:'Biome',ProductVersion:require('../package.json').version}));initialized=true;
  if(diagnostics){logCallback=koffi.register(pointer=>{const record=koffi.decode(pointer,logMessageType);const value=record.Message.replace(/eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/g,'<JWT>').split(config.clientSecret).join('<client credential>');debug(record.Category+': '+value);},koffi.pointer(callbackType));f.Logging_SetCallback(logCallback);f.Logging_SetLogLevel(2147483647,300);}
  debug('platform create');const platform=f.Platform_Create({ApiVersion:15,ProductId:config.productId,SandboxId:config.sandboxId,DeploymentId:config.deploymentId,ClientCredentials:{ClientId:config.clientId,ClientSecret:config.clientSecret},bIsServer:0,Flags:6,TickBudgetInMilliseconds:2});
  if(!platform){f.Shutdown();initialized=false;throw new Error('Could not initialize EOS platform.');}

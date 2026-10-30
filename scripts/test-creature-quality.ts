@@ -18,3 +18,10 @@ console.log('Cliff avoidance, swept falls, wall-blocked attacks, textured jointe
 const doorBlocks=new Map<string,B>([['0,1,0',B.OAK_DOOR_BOTTOM_OPEN],['0,2,0',B.OAK_DOOR_TOP_OPEN]]),doorWorld={getBlock:(x:number,y:number,z:number)=>doorBlocks.get(`${x},${y},${z}`)??(y===0?B.STONE:B.AIR),setBlock:(x:number,y:number,z:number,b:B)=>doorBlocks.set(`${x},${y},${z}`,b)};const villager=creatureState('door',S.VILLAGER,3,1,.5);villager.uniqueData.door={x:0,y:1,z:0,closeAt:0};tickCreature(villager,.1,doorWorld,[{x:.5,y:1,z:.5}],15);assert.equal(doorBlocks.get('0,1,0'),B.OAK_DOOR_BOTTOM_OPEN,'Villagers never close a door onto a player');tickCreature(villager,.1,doorWorld,[],15);assert.equal(doorBlocks.get('0,1,0'),B.OAK_DOOR_BOTTOM);
 
 const legacy=new WorldGenerator(1337,5);assert.ok(legacy.structures instanceof LegacyStructurePlanner);const legacyPlan=legacy.structures.plan(0,1,'village');assert.ok(legacyPlan);const legacyKey=`${Math.floor(legacyPlan.x/16)},${Math.floor(legacyPlan.z/16)}`,continuation=new StructurePlanner(legacy,{[legacyKey]:5}).plan(0,1,'village');assert.deepEqual(continuation?.blocks,legacyPlan.blocks,'Partially explored generation-5 villages continue with their original blueprint');
+
+const coast={getBlock:(_x:number,y:number,_z:number)=>y===0?B.SAND:B.AIR,setBlock:()=>{}};
+const gull=creatureState('flight',S.SEAGULL,.5,1,.5);gull.uniqueData.flightAt=0;
+let highest=1,landed=false;
+for(let i=0;i<700;i++){tickCreature(gull,.1,coast,[],15);highest=Math.max(highest,gull.y);if(highest>4&&!gull.uniqueData.isFlying&&gull.y<1.2){landed=true;break;}}
+assert.ok(highest>4,'Seagulls take off and sustain flight');assert.ok(landed,'Seagulls land after flying');
+const gullModel=new T.Group()as EntityMeshGroup;gullModel.species=S.SEAGULL;gullModel.parts={};gullModel.animTime=0;buildBetaCreature(gullModel);gullModel.userData.isFlying=true;animateBetaCreature(gullModel,3,.1);assert.ok(Math.abs(gullModel.parts['wing1'].rotation.z)>.6,'Flying seagulls spread and flap their wings');

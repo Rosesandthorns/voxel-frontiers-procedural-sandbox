@@ -110,3 +110,7 @@ button { cursor: pointer; } button:focus-visible { outline: 2px solid #d5bd80; o
 
 .vitals meter[aria-label="Health"]::-webkit-meter-optimum-value{background:#bd6758}.vitals meter[aria-label="Hunger"]::-webkit-meter-optimum-value{background:#c8b365}
 .vital-meter{height:9px;flex:1;min-width:70px;background:#17221dcc;border:1px solid #ffffff40;overflow:hidden}.vital-meter>span{display:block;height:100%}
+
+/* Breath floats above the fixed health/hunger row without changing its layout. */
+.vitals{position:relative;flex-wrap:nowrap}
+.breath-row{position:absolute;bottom:calc(100% + 7px);right:0;width:calc((100% - 8px)/2);display:flex}
