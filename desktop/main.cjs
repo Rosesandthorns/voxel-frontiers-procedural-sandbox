@@ -5,15 +5,25 @@ const path = require('node:path');
 const { pathToFileURL } = require('node:url');
 app.setName('Biome');
 if (process.env.VOXEL_USER_DATA) app.setPath('userData', path.resolve(process.env.VOXEL_USER_DATA));
+// Version hand-offs must not retain a deletable game's working directory.
+const stableWorkingDirectory=app.getPath('userData');
+const inheritedWorkingDirectory=process.cwd();
+fs.mkdirSync(stableWorkingDirectory,{recursive:true});
+process.chdir(stableWorkingDirectory);
+const launchAfterExit=(exe,args=[])=>{const child=require('node:child_process').spawn(process.execPath,[path.join(__dirname,'relaunch.cjs'),JSON.stringify({parent:process.pid,exe,args,cwd:stableWorkingDirectory})],{cwd:stableWorkingDirectory,env:{...process.env,ELECTRON_RUN_AS_NODE:'1'},detached:true,stdio:'ignore',windowsHide:true});child.unref();app.quit();};
 protocol.registerSchemesAsPrivileged([{ scheme: 'voxel', privileges: { standard: true, secure: true, supportFetchAPI: true } }]);
 let win;
 app.on('second-instance',()=>{if(win){if(win.isMinimized())win.restore();win.show();win.focus();}});
 if(!app.requestSingleInstanceLock())app.quit();
 else app.whenReady().then(() => {
-  const updateDesktopEntry=file=>{if(process.platform==='win32'&&app.isPackaged&&!process.env.VOXEL_USER_DATA){try{shell.writeShortcutLink(path.join(app.getPath('desktop'),'Biome.lnk'),'update',{target:file||process.execPath,cwd:path.dirname(file||process.execPath),description:'Play Biome',icon:file||process.execPath,iconIndex:0})||shell.writeShortcutLink(path.join(app.getPath('desktop'),'Biome.lnk'),'create',{target:file||process.execPath,cwd:path.dirname(file||process.execPath),description:'Play Biome',icon:file||process.execPath,iconIndex:0});}catch(error){console.error('Could not update Biome desktop shortcut:',error.message);}}};
+  const versionRoot=path.join(stableWorkingDirectory,'versions'),inheritedRelative=path.relative(versionRoot,inheritedWorkingDirectory);
+  if(inheritedRelative&&!inheritedRelative.startsWith('..'+path.sep)&&inheritedRelative!=='..'&&!path.isAbsolute(inheritedRelative)){
+    launchAfterExit(process.execPath,process.argv.slice(1));return;
+  }
+  const updateDesktopEntry=file=>{if(process.platform==='win32'&&app.isPackaged&&!process.env.VOXEL_USER_DATA){try{shell.writeShortcutLink(path.join(app.getPath('desktop'),'Biome.lnk'),'update',{target:file||process.execPath,cwd:stableWorkingDirectory,description:'Play Biome',icon:file||process.execPath,iconIndex:0})||shell.writeShortcutLink(path.join(app.getPath('desktop'),'Biome.lnk'),'create',{target:file||process.execPath,cwd:stableWorkingDirectory,description:'Play Biome',icon:file||process.execPath,iconIndex:0});}catch(error){console.error('Could not update Biome desktop shortcut:',error.message);}}};
   const startupVersions=require('./versions.cjs').createVersions({folder:path.join(app.getPath('userData'),'versions'),current:require('../package.json').version});
   const selectedExecutable=startupVersions.startup();
-  if(app.isPackaged&&selectedExecutable){updateDesktopEntry(selectedExecutable);app.relaunch({execPath:selectedExecutable,args:[]});app.quit();return;}
+  if(app.isPackaged&&selectedExecutable){updateDesktopEntry(selectedExecutable);launchAfterExit(selectedExecutable);return;}
   updateDesktopEntry();
   const root = path.resolve(__dirname, '../dist');
   const saves = path.join(app.getPath('userData'), 'saves');
@@ -129,7 +139,7 @@ else app.whenReady().then(() => {
   const configFile=app.isPackaged?path.join(process.resourcesPath,'eos-config.json'):path.join(__dirname,'../.env.eos.json');
   const eosConfig=fs.existsSync(configFile)?JSON.parse(fs.readFileSync(configFile,'utf8')):null;
   online=createOnline({serverDriverFactory:createServerDriver,joinTicket:async fingerprint=>{if(typeof fingerprint!=='string'||!/^([0-9A-F]{2}:){31}[0-9A-F]{2}$/.test(fingerprint))throw new Error('Invalid server fingerprint');if(!await accounts.identity())throw new Error('Sign in before joining a server.');const ticket=require('node:crypto').randomBytes(32).toString('hex');const {error}=await accountClient.rpc('biome_create_server_ticket',{ticket_hash:require('node:crypto').createHash('sha256').update(ticket).digest('hex'),server_fingerprint:fingerprint});if(error)throw new Error(error.code==='P0001'?error.message:'Could not create a secure join ticket. Check your sign-in and connection, then try again.');return ticket;},config:eosConfig,saves,identity:accounts.identity,friends,resolveProfile:async id=>{const {data,error}=await accountClient.from('biome_profiles').select('username').eq('id',id).maybeSingle();if(error)throw error;return data;},readSkin:()=>fs.existsSync(skinFile)?'data:image/png;base64,'+fs.readFileSync(skinFile).toString('base64'):null,driverFactory:config=>{if(!config)throw new Error('Online services are not configured in this build.');return createEOS(config,{dllPath:app.isPackaged?path.join(process.resourcesPath,'EOSSDK-Win64-Shipping.dll'):path.join(__dirname,'native','EOSSDK-Win64-Shipping.dll')});}});
-  const versions=require('./versions.cjs').createVersions({folder:path.join(app.getPath('userData'),'versions'),saves,current:require('../package.json').version,onSelection:updateDesktopEntry,launch:async file=>{app.relaunch({execPath:file,args:[]});app.quit();}});
+  const versions=require('./versions.cjs').createVersions({folder:path.join(app.getPath('userData'),'versions'),saves,current:require('../package.json').version,onSelection:updateDesktopEntry,launch:async file=>launchAfterExit(file)});
   app.on('before-quit',()=>{online.close();accounts.close();});
   ipcMain.handle('biome-online',async(event,action,data)=>{
     if(event.sender!==win?.webContents||event.senderFrame!==win.webContents.mainFrame||!event.senderFrame.url.startsWith('voxel://game/'))throw new Error('Forbidden');

@@ -1,13 +1,9 @@
 {
-  "version": "0.3.0",
-  "updateName": "Bigger Than Ever",
+  "version": "0.3.1",
+  "updateName": "Version switching fix",
   "updateFeatures": [
-    "Grand mountain ranges and rare summit groves",
-    "Villages and mountain fortresses",
-    "New textured wildlife and darkness creatures",
-    "Survival, cauldrons, food preservation and drying racks",
-    "Wood-specific chests with inventory transfers",
-    "Boats and tier-based tool durability",
-    "Procedural pixel-art item icons and world streaming fixes"
+    "Release old version folders after switching on Windows",
+    "Safe deletion with intact files when a version is busy",
+    "Automatic cleanup of files Windows releases later"
   ]
 }

@@ -1,10 +1,12 @@
-# Biome — Bigger Than Ever (0.3.0)
+# Biome — 0.3.1
 
 A local Windows voxel sandbox based on [Rosesandthorns/voxel-frontiers-procedural-sandbox](https://github.com/Rosesandthorns/voxel-frontiers-procedural-sandbox), originally downloaded at commit `a8f712bf5671e704e3ed709919fb4f810ab0e6e6`.
 
+The [0.3.1 launcher hotfix](release-notes-0.3.1.md) corrects Windows version switching and deletion while retaining the Bigger Than Ever gameplay content.
+
 ## Play
 
-Download `Biome-0.3.0-win-x64.zip` from GitHub Releases, extract the entire folder and run `Biome.exe`. Keep the executable with its resources. The in-game **Versions** screen downloads, installs and switches versions, and backs up worlds before switching. **Open saves folder** opens local world files. The Windows build is unsigned.
+Download `Biome-0.3.1-win-x64.zip` from GitHub Releases, extract the entire folder and run `Biome.exe`. Keep the executable with its resources. The in-game **Versions** screen downloads, installs and switches versions, and backs up worlds before switching. **Open saves folder** opens local world files. The Windows build is unsigned.
 
 See [0.3.0 release notes](release-notes-0.3.0.md) for mountains, villages/fortresses, textured wildlife, survival, workshops, storage, boats, durability and item icons. Existing explored chunks retain their generation; unexplored chunks use generation 5 and blend at older terrain boundaries.
 

@@ -31,7 +31,20 @@ function createVersions({folder,saves,current,fetcher=fetch,launch,onSelection=(
  const selectionFile=path.join(folder,'selected-version.json');
  function select(v){fs.mkdirSync(folder,{recursive:true});fs.writeFileSync(selectionFile+'.tmp',JSON.stringify({version:v}));fs.renameSync(selectionFile+'.tmp',selectionFile);onSelection(v===current?null:path.join(folder,v,'Biome.exe'));}
  function startup(){try{const selected=version(JSON.parse(fs.readFileSync(selectionFile,'utf8')).version);if(selected===current)return null;if(installed().some(v=>v.version===selected)&&fs.existsSync(path.join(folder,selected,'Biome.exe')))return path.join(folder,selected,'Biome.exe');}catch{}return null;}
- async function remove(tag){if(busy)throw new Error('Another version action is running.');const v=version(tag);if(v===current)throw new Error('The running version cannot be deleted.');const root=path.resolve(folder),target=path.resolve(folder,v);if(path.dirname(target)!==root||!fs.existsSync(path.join(target,'.biome-verified.json')))throw new Error('Version is not installed');if(fs.lstatSync(target).isSymbolicLink()||path.dirname(fs.realpathSync(target))!==fs.realpathSync(root))throw new Error('Unsafe version folder');busy=true;try{await fs.promises.rm(target,{recursive:true,force:false});try{if(JSON.parse(fs.readFileSync(selectionFile,'utf8')).version===v)select(current);}catch{}return {version:v};}finally{busy=false;}}
+ async function cleanupRemoved(){if(!fs.existsSync(folder))return;const root=path.resolve(folder);for(const name of fs.readdirSync(root)){if(!/^\.remove-\d+\.\d+\.\d+-[a-f0-9-]{36}$/.test(name))continue;const target=path.resolve(root,name);try{if(path.dirname(target)!==root||fs.lstatSync(target).isSymbolicLink()||path.dirname(fs.realpathSync(target))!==fs.realpathSync(root))continue;await fs.promises.rm(target,{recursive:true,force:true,maxRetries:2,retryDelay:150});}catch{/* Windows may still be releasing files; retry on the next launch. */}}}
+ async function remove(tag){
+  if(busy)throw new Error('Another version action is running.');const v=version(tag);if(v===current)throw new Error('The running version cannot be deleted.');const root=path.resolve(folder),target=path.resolve(root,v);
+  if(path.dirname(target)!==root||!fs.existsSync(path.join(target,'.biome-verified.json')))throw new Error('Version is not installed');if(fs.lstatSync(target).isSymbolicLink()||path.dirname(fs.realpathSync(target))!==fs.realpathSync(root))throw new Error('Unsafe version folder');
+  busy=true;try{
+   const relative=path.relative(target,process.cwd());if(relative===''||(!relative.startsWith('..'+path.sep)&&relative!=='..'&&!path.isAbsolute(relative))){const stable=path.dirname(root);fs.mkdirSync(stable,{recursive:true});process.chdir(stable);}
+   const removed=path.resolve(root,'.remove-'+v+'-'+crypto.randomUUID());if(path.dirname(removed)!==root)throw new Error('Unsafe version folder');
+   try{await fs.promises.rename(target,removed);}catch(error){if(['EBUSY','EPERM','EACCES'].includes(error.code))throw new Error('This version is still in use. Close other Biome windows and try again.');throw error;}
+   try{if(JSON.parse(fs.readFileSync(selectionFile,'utf8')).version===v)select(current);}catch{}
+   let pendingCleanup=false;try{await fs.promises.rm(removed,{recursive:true,force:true,maxRetries:3,retryDelay:150});}catch{pendingCleanup=true;}
+   return {version:v,pendingCleanup};
+  }finally{busy=false;}
+ }
+ void cleanupRemoved();
  async function run(tag){if(busy)throw new Error('Another version action is running.');const v=version(tag),target=path.join(folder,v);if(!fs.existsSync(path.join(target,'.biome-verified.json'))||!fs.existsSync(path.join(target,'Biome.exe')))throw new Error('Version is not installed');busy=true;try{const backup=path.join(folder,'world-backups',new Date().toISOString().replace(/[:.]/g,'-'));if(fs.existsSync(saves))await fs.promises.cp(saves,backup,{recursive:true,errorOnExist:true,force:false});select(v);await launch(path.join(target,'Biome.exe')); return {backup};}finally{busy=false;}}
 
  return {list,install,installed,run,remove,startup,current,status:()=>({...progress}),cancel:()=>controller?.abort()};
