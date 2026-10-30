@@ -31,6 +31,9 @@ world._pumpMeshQueue();world.chunks.set('0,0',newChunk);const emptyMesh:any={};f
 world.completedMeshMap.set('0,0',{chunk:oldChunk,result:{}});world._applyMeshResult=()=>{throw new Error('Stale mesh was uploaded');};world._drainCompletedMeshes(2);assert.equal(world.completedMeshMap.size,0);
 console.log('Stale mesh results are discarded and replacement chunks are scheduled.');
 
+// An edit made while the same chunk is being meshed must reject that stale result too.
+free=true;newChunk.setBlock(1,90,1,BlockType.STONE);world.pendingMeshKeys=new Set(['0,0']);world.inflightMeshKeys=new Set();world.completedMeshMap=new Map();world.chunks.set('0,0',newChunk);world._pumpMeshQueue();newChunk.setBlock(1,90,1,BlockType.AIR);world.enqueueMesh(newChunk,true);finishMesh(emptyMesh);await new Promise(resolve=>setTimeout(resolve,0));assert.equal(world.completedMeshMap.size,0,'Pre-break geometry must never be uploaded');assert.equal(world.pendingMeshKeys.has('0,0'),true,'Edited chunk is immediately scheduled with fresh voxels');
+
 // A stationary guest must continue scheduling missing terrain after a failed transfer.
 let rescheduled=0;
 const remote:any=Object.assign(Object.create(VoxelWorld.prototype),{isRemote:true,remoteRetryClock:-1000,lastLoadedCX:0,lastLoadedCZ:0,lastLoadedDist:3,chunks:new Map(),_requestChunkFromWorker:()=>{},_dispatchRing:()=>rescheduled++,_enforceChunkLimit:()=>{}});

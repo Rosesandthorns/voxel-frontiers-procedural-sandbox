@@ -1,7 +1,7 @@
 {
   "name": "biome",
   "private": true,
-  "version": "0.3.3",
+  "version": "0.3.0",
   "type": "module",
   "scripts": {
     "dev": "vite --port=3000 --host=0.0.0.0",
@@ -11,7 +11,7 @@
     "lint": "tsc --noEmit",
     "desktop": "npm run build && electron .",
     "package:win": "node scripts/validate-eos-client.mjs && npm run build && electron-builder --win --dir",
-    "test": "tsx scripts/test-save.ts && node scripts/test-world-state.mjs && tsx scripts/test-world.ts && tsx scripts/test-vertical-world.ts && tsx scripts/test-performance.ts && tsx scripts/test-autosave.ts && tsx scripts/test-survival-lighting.ts && tsx scripts/test-food-workshops.ts && tsx scripts/test-beta.ts && tsx scripts/test-creature-quality.ts && tsx scripts/test-slime-model.ts && tsx scripts/test-server-workshops.ts && node scripts/test-accounts.mjs && tsx scripts/test-skins.ts && node scripts/test-online.mjs && tsx scripts/test-remote-motion.ts && tsx scripts/test-mountains.ts && node scripts/test-server.mjs && node scripts/test-server-update.mjs && node scripts/test-versions.mjs && node scripts/test-version-locks.mjs",
+    "test": "tsx scripts/test-save.ts && node scripts/test-world-state.mjs && tsx scripts/test-world.ts && tsx scripts/test-vertical-world.ts && tsx scripts/test-performance.ts && tsx scripts/test-autosave.ts && tsx scripts/test-spawn-safety.ts && tsx scripts/test-survival-lighting.ts && tsx scripts/test-food-workshops.ts && tsx scripts/test-beta.ts && tsx scripts/test-creature-quality.ts && tsx scripts/test-slime-model.ts && tsx scripts/test-server-workshops.ts && node scripts/test-accounts.mjs && tsx scripts/test-skins.ts && node scripts/test-online.mjs && tsx scripts/test-remote-motion.ts && tsx scripts/test-mountains.ts && node scripts/test-server.mjs && node scripts/test-server-update.mjs && node scripts/test-versions.mjs && node scripts/test-version-locks.mjs",
     "test:desktop": "node scripts/smoke-desktop.mjs",
     "test:upgrade": "tsx scripts/smoke-upgrade.ts",
     "server": "node desktop/server.cjs"

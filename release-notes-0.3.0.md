@@ -14,7 +14,11 @@ Download Biome-0.3.0-win-x64.zip, extract it, and run Biome.exe. Existing player
 - Wooden boats: place on existing water, right-click to board, W/S to paddle, A/D to steer, Shift to dismount. Boats never create water. Shared boarding ownership prevents two players from controlling the same boat.
 - Tool durability bars, attack/mining/hoe wear and breakage. Higher-tier tools last longer. Added pixel-art item icons and generated fallbacks for missing image assets.
 - Fixed empty chunks after revisiting an unloading chunk, retained generation requests around guests, synchronized day rates, and added dedicated-server support for the new workshops, creatures, chests and boats.
+- Consolidates every 0.3.x improvement into this definitive 0.3.0 build, including the corrected version label, fixed oxygen HUD layout, polished slime expression and full seagull flight.
+- New players and respawning players now search nearby dry ground instead of appearing underwater or in rivers. Dedicated servers use the same dry-land rule.
+- Block edits invalidate in-flight chunk meshes, so a broken block cannot reappear from an older worker result.
+- Torch lighting keeps the last complete light map while recalculating, propagates across loaded chunk boundaries, and remeshes only after the replacement map is ready.
 
 This is an early development update. Villager navigation is basic and has no jobs or trading. Survival and inventories are still client-reported; a durable transaction ledger for interrupted online workshop transfers remains future work. Use matching game versions for multiplayer. The Windows distribution includes the previously approved restricted EOS player-client credential, SDK library and license; account sign-in tokens and administrative credentials are not included.
 
-Validation: TypeScript/build, save/terrain/performance/network regression tests, rendered chest and boat controls, creature rendering, survival/lighting, legacy-world continuity and dedicated-server tests. Public internet/EOS play is not covered by the automated local TLS tests.
+Validation: TypeScript/build, dry-land spawn selection, stale-mesh rejection, cross-chunk lighting, save/terrain/performance/network regressions, rendered chest and boat controls, creature rendering, legacy-world continuity and dedicated-server tests. Public internet/EOS play is not covered by the automated local TLS tests.

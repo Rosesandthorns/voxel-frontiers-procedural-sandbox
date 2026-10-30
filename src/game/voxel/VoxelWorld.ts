@@ -709,6 +709,8 @@ export class VoxelWorld {
 
       chunk.needsRemesh = false;
 
+      const dispatchedRevision = chunk.saveRevision;
+
 
 
       // Snapshot the latest neighbor voxels right at dispatch time
@@ -733,7 +735,7 @@ export class VoxelWorld {
 
         const current=this.chunks.get(dispatchedKey);
 
-        if (current===chunk) {
+        if (current===chunk && chunk.saveRevision===dispatchedRevision) {
 
           this.completedMeshMap.set(dispatchedKey, { chunk, result });
 

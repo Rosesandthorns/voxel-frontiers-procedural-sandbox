@@ -38,7 +38,7 @@ import { isWaterOrWaterlogged } from '../game/voxel/WaterFlora';
 
 import { getItemForBlock } from '../game/systems/ItemRegistry';
 
-import { isMoistureSensitiveBlock, BLOCK_DEFS } from '../game/voxel/Blocks';
+import { isMoistureSensitiveBlock, BLOCK_DEFS, isWaterBlock } from '../game/voxel/Blocks';
 
 import { SeasonWeatherSystem } from '../game/environment/SeasonWeatherSystem';
 
@@ -527,7 +527,7 @@ const GameCanvasComponent: React.FC<GameCanvasProps> = ({
 
 
 
-      if ((!feetDef || !feetDef.solid) && (!headDef || !headDef.solid)) {
+      if ((!feetDef || !feetDef.solid) && (!headDef || !headDef.solid) && !isWaterBlock(feet) && !isWaterBlock(head)) {
 
         spawnPoint = saved!.coords;
 

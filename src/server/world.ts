@@ -98,7 +98,7 @@ export function createServerWorld(folder:string,seed:number){
  const reader={getBlock:(x:number,y:number,z:number)=>!Number.isSafeInteger(y)||y<0?BlockType.AIR:chunk(Math.floor(x/16),Math.floor(z/16)).getBlock(x&15,y,z&15)};
 
 
- function spawn(){const c=chunk(0,0);for(let y=c.maxY+2;y>2;y--)if(BLOCK_DEFS[c.getBlock(8,y,8)]?.solid&&c.getBlock(8,y+1,8)===BlockType.AIR&&c.getBlock(8,y+2,8)===BlockType.AIR)return {x:8.5,y:y+1.01,z:8.5};return {x:8.5,y:150,z:8.5};}
+ function spawn(){const candidates:Array<[number,number]>=[[8,8]];for(let radius=2;radius<=64;radius+=2){for(let d=-radius;d<=radius;d+=2)candidates.push([8+d,8-radius],[8+d,8+radius]);for(let d=-radius+2;d<radius;d+=2)candidates.push([8-radius,8+d],[8+radius,8+d]);}for(const [x,z]of candidates){const c=chunk(Math.floor(x/16),Math.floor(z/16)),lx=x&15,lz=z&15;for(let y=c.columnTop(lx,lz);y>2;y--)if(BLOCK_DEFS[c.getBlock(lx,y,lz)]?.solid&&c.getBlock(lx,y+1,lz)===BlockType.AIR&&c.getBlock(lx,y+2,lz)===BlockType.AIR)return {x:x+.5,y:y+1.01,z:z+.5};}const c=chunk(0,0),y=Math.max(60,c.columnTop(8,8)+1);c.setBlock(8,y,8,BlockType.STONE);save(0,0,c);return {x:8.5,y:y+1.01,z:8.5};}
 
 
  const lighting=new VoxelLighting({...reader,chunks:cache});

@@ -1,9 +1,9 @@
 {
-  "version": "0.3.3",
-  "updateName": "Flight and HUD fixes",
+  "version": "0.3.0",
+  "updateName": "Bigger Than Ever",
   "updateFeatures": [
-    "Menu and launcher show the actual running game version",
-    "Oxygen appears above health and hunger without shifting the HUD",
-    "Seagulls take off, fly, flap their wings and land again"
+    "Mountains, villages, fortresses, survival, wildlife and multiplayer polish",
+    "Dry-land spawning and reliable block breaking meshes",
+    "Stable lighting across chunk boundaries"
   ]
 }

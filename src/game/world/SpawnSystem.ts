@@ -1,6 +1,6 @@
 import { BlockType } from '../../types';
 import { BLOCK_DEFS, isWaterBlock } from '../voxel/Blocks';
-import { CHUNK_H, VoxelWorld } from '../voxel/VoxelWorld';
+import { VoxelWorld } from '../voxel/VoxelWorld';
 
 export interface SpawnPoint {
   x: number;
@@ -10,51 +10,30 @@ export interface SpawnPoint {
 
 export class SpawnSystem {
   public static findSafeSpawn(world: VoxelWorld, targetX: number = 8.5, targetZ: number = 8.5): SpawnPoint {
-    const spawnX = targetX;
-    const spawnZ = targetZ;
-
-    const cx = Math.floor(spawnX / 16);
-    const cz = Math.floor(spawnZ / 16);
-
-    // Ensure immediate spawn chunk exists
-    const chunk = world.generateChunkSync(cx, cz);
-
-    // Calculate natural mathematical terrain height at spawn
-    const subBiome = world.generator.getSubBiomeAt(spawnX, spawnZ);
-    const groundY = world.generator.getHeightAt(spawnX, spawnZ, subBiome);
-
-    const lx = ((Math.floor(spawnX) % 16) + 16) % 16;
-    const lz = ((Math.floor(spawnZ) % 16) + 16) % 16;
-
-    // Find actual natural surface height at spawn coordinates (scanning down from sky)
-    let naturalFloorY = 0;
-    if (chunk) {
-      for (let y = chunk.columnTop(lx,lz); y >= Math.max(20, Math.floor(groundY) - 15); y--) {
-        const b = chunk.getBlock(lx, y, lz);
-        if (b !== BlockType.AIR && !isWaterBlock(b)) {
-          const def = BLOCK_DEFS[b];
-          if (def && def.solid) {
-            const bAbove1 = chunk.getBlock(lx, y + 1, lz);
-            const bAbove2 = chunk.getBlock(lx, y + 2, lz);
-            const def1 = BLOCK_DEFS[bAbove1];
-            const def2 = BLOCK_DEFS[bAbove2];
-            if ((!def1 || !def1.solid) && (!def2 || !def2.solid)) {
-              naturalFloorY = y;
-              break;
-            }
-          }
+    const tx=Math.floor(targetX),tz=Math.floor(targetZ);
+    let spawnX=targetX,spawnZ=targetZ,naturalFloorY=-1;
+    const candidates:Array<[number,number]>=[[tx,tz]];
+    // Search nearby dry land in widening rings so rivers and ocean shallows are rejected.
+    for(let radius=2;radius<=64;radius+=2){
+      for(let d=-radius;d<=radius;d+=2)candidates.push([tx+d,tz-radius],[tx+d,tz+radius]);
+      for(let d=-radius+2;d<radius;d+=2)candidates.push([tx-radius,tz+d],[tx+radius,tz+d]);
+    }
+    for(const [wx,wz] of candidates){
+      const chunk=world.generateChunkSync(Math.floor(wx/16),Math.floor(wz/16)),lx=wx&15,lz=wz&15;
+      for(let y=chunk.columnTop(lx,lz);y>=20;y--){
+        const floor=chunk.getBlock(lx,y,lz),feet=chunk.getBlock(lx,y+1,lz),head=chunk.getBlock(lx,y+2,lz);
+        if(BLOCK_DEFS[floor]?.solid&&!isWaterBlock(floor)&&feet===BlockType.AIR&&head===BlockType.AIR){
+          spawnX=wx+.5;spawnZ=wz+.5;naturalFloorY=y;break;
         }
       }
+      if(naturalFloorY>=20)break;
     }
-
-    // Fallback: use mathematical terrain height if scan didn't find open floor
-    if (naturalFloorY < 40) {
-      naturalFloorY = Math.max(60, Math.floor(groundY));
-      const fallbackBlock = subBiome.surfaceBlock ?? BlockType.GRASS;
-      world.modifiedBlocks.set(world.getBlockCoordKey(Math.floor(spawnX), naturalFloorY, Math.floor(spawnZ)), fallbackBlock);
-      if (chunk) {
-        chunk.setBlock(lx, naturalFloorY, lz, fallbackBlock);
-      }
+    // Pathological all-water seeds get a dry emergency platform above the surface.
+    if(naturalFloorY<20){
+      const chunk=world.generateChunkSync(Math.floor(tx/16),Math.floor(tz/16)),lx=tx&15,lz=tz&15;
+      naturalFloorY=Math.max(60,chunk.columnTop(lx,lz)+1);spawnX=tx+.5;spawnZ=tz+.5;
+      world.modifiedBlocks.set(world.getBlockCoordKey(tx,naturalFloorY,tz),BlockType.STONE);
+      chunk.setBlock(lx,naturalFloorY,lz,BlockType.STONE);
     }
 
     const spawnY = naturalFloorY + 1.0;
@@ -66,6 +45,7 @@ export class SpawnSystem {
           const bx = Math.floor(spawnX + ox);
           const by = Math.floor(spawnY + oy);
           const bz = Math.floor(spawnZ + oz);
+          if(isWaterBlock(world.getBlock(bx,by,bz)))continue;
           world.modifiedBlocks.set(world.getBlockCoordKey(bx, by, bz), BlockType.AIR);
           const c = world.chunks.get(world.getChunkKey(Math.floor(bx / 16), Math.floor(bz / 16)));
           if (c) {
