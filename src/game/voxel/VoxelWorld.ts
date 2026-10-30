@@ -142,7 +142,7 @@ export class VoxelWorld {
 
   // Completed worker mesh results waiting for budgeted main-thread GPU buffer upload
 
-  private completedMeshMap: Map<string, { chunk: Chunk; result: MeshResult }> = new Map();
+  private completedMeshMap: Map<string, { chunk: Chunk; result: MeshResult; revision: number; neighbors: Array<{chunk:Chunk|null;revision:number}> }> = new Map();
 
 
 
@@ -723,6 +723,8 @@ export class VoxelWorld {
 
       const neighborPosZ = this.chunks.get(this.getChunkKey(chunk.cx, chunk.cz + 1));
 
+      const dispatchedNeighbors=[neighborNegX,neighborPosX,neighborNegZ,neighborPosZ].map(neighbor=>({chunk:neighbor??null,revision:neighbor?.saveRevision??-1}));
+
 
 
       const dispatchedKey = bestKey;
@@ -735,9 +737,9 @@ export class VoxelWorld {
 
         const current=this.chunks.get(dispatchedKey);
 
-        if (current===chunk && chunk.saveRevision===dispatchedRevision) {
+        if (current===chunk && chunk.saveRevision===dispatchedRevision && this._meshNeighborsMatch(chunk,dispatchedNeighbors)) {
 
-          this.completedMeshMap.set(dispatchedKey, { chunk, result });
+          this.completedMeshMap.set(dispatchedKey, { chunk, result, revision:dispatchedRevision, neighbors:dispatchedNeighbors });
 
         } else if(current) {
 
@@ -787,6 +789,16 @@ export class VoxelWorld {
 
         }
 
+        if(entry.chunk.saveRevision!==entry.revision||!this._meshNeighborsMatch(entry.chunk,entry.neighbors)){
+
+          this.completedMeshMap.delete(key);
+
+          this.enqueueMesh(entry.chunk,true);
+
+          continue;
+
+        }
+
         const dx = entry.chunk.cx - pcx;
 
         const dz = entry.chunk.cz - pcz;
@@ -820,6 +832,14 @@ export class VoxelWorld {
       uploads++;
 
     }
+
+  }
+
+  private _meshNeighborsMatch(chunk:Chunk,snapshot:Array<{chunk:Chunk|null;revision:number}>){
+
+    const current=[this.chunks.get(this.getChunkKey(chunk.cx-1,chunk.cz))??null,this.chunks.get(this.getChunkKey(chunk.cx+1,chunk.cz))??null,this.chunks.get(this.getChunkKey(chunk.cx,chunk.cz-1))??null,this.chunks.get(this.getChunkKey(chunk.cx,chunk.cz+1))??null];
+
+    return current.every((neighbor,index)=>neighbor===snapshot[index].chunk&&(neighbor?.saveRevision??-1)===snapshot[index].revision);
 
   }
 
