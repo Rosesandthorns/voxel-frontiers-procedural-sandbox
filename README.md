@@ -1,20 +1,29 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
-</div>
+# Biome — Bigger Than Ever (0.3.0)
 
-# Run and deploy your AI Studio app
+A local Windows voxel sandbox based on [Rosesandthorns/voxel-frontiers-procedural-sandbox](https://github.com/Rosesandthorns/voxel-frontiers-procedural-sandbox), originally downloaded at commit `a8f712bf5671e704e3ed709919fb4f810ab0e6e6`.
 
-This contains everything you need to run your app locally.
+## Play
 
-View your app in AI Studio: https://ai.studio/apps/b7cd88ad-6060-41c8-a505-b2e9aa08d2d7
+Download `Biome-0.3.0-win-x64.zip` from GitHub Releases, extract the entire folder and run `Biome.exe`. Keep the executable with its resources. The in-game **Versions** screen downloads, installs and switches versions, and backs up worlds before switching. **Open saves folder** opens local world files. The Windows build is unsigned.
 
-## Run Locally
+See [0.3.0 release notes](release-notes-0.3.0.md) for mountains, villages/fortresses, textured wildlife, survival, workshops, storage, boats, durability and item icons. Existing explored chunks retain their generation; unexplored chunks use generation 5 and blend at older terrain boundaries.
 
-**Prerequisites:**  Node.js
+## Development
 
+```sh
+npm install
+npm run desktop
+npm run lint
+npm test
+npm run package:win
+```
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+The optional browser preview uses `npm run dev`. The desktop app uses local Electron resources and saves; GitHub hosts version downloads. Player accounts use the configured Supabase project and private friend worlds use the EOS relay.
+
+## Servers and accounts
+
+[SERVER.md](SERVER.md) covers dedicated hosting, access lists and updates. The Windows distribution includes **Start server.cmd**, so hosting does not require a separate Node installation. [ACTIVATION.md](ACTIVATION.md) describes account setup; [EOS-CREDENTIALS.md](EOS-CREDENTIALS.md) describes the restricted, extractable EOS player-client credential approved for distribution. Administrative credentials and player sign-in tokens do not belong in builds or source control.
+
+## Development status
+
+This is an early development update. Villager navigation is basic; there are no jobs or trading. Survival and inventories remain client-reported, and interrupted online workshop operations need durable transaction recovery. See [PRE-BETA-DESIGN.md](PRE-BETA-DESIGN.md) for acceptance checks and remaining hardening work.

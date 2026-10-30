@@ -1,3 +1,4 @@
+import {Survival} from './Survival';
 import * as THREE from 'three';
 import { BlockType } from '../../types';
 import { soundManager } from '../audio/SoundFX';
@@ -12,6 +13,9 @@ import { RaycastHit, VoxelRaycaster } from './VoxelRaycaster';
 export type { RaycastHit } from './VoxelRaycaster';
 
 export class PlayerController {
+  public boatId:string|null=null;
+  public onLeaveBoat:(()=>void)|null=null;
+  private boatSpeed=0;
   public camera: THREE.PerspectiveCamera;
   public world: VoxelWorld;
   public pos: THREE.Vector3;
@@ -25,9 +29,11 @@ export class PlayerController {
   public isInWater: boolean = false;
   public isHoldingLiquidContainer: boolean = false;
 
+  public survival=new Survival();
   public health: number = 20;
   public maxHealth: number = 20;
-  public stamina: number = 100;
+  public get stamina(){return this.survival.state.hunger;}
+  public set stamina(value:number){if(Number.isFinite(value))this.survival.state.hunger=Math.max(0,Math.min(100,value));}
   public maxStamina: number = 100;
 
   // Subsystems
@@ -45,6 +51,9 @@ export class PlayerController {
   public static readonly WIDTH = PlayerPhysics.WIDTH;
   public static readonly HEIGHT = PlayerPhysics.HEIGHT;
   public static readonly EYE_HEIGHT = PlayerPhysics.EYE_HEIGHT;
+
+  public damage(amount:number){this.health=Math.max(0,this.health-Math.max(0,amount));}
+  public updateSurvival(delta:number,age:number){if(this.health<=0)return;const x=Math.floor(this.pos.x),y=Math.floor(this.pos.y),z=Math.floor(this.pos.z),head=this.world.getBlock(x,Math.floor(this.pos.y+PlayerController.EYE_HEIGHT),z);const cactusTypes=[BlockType.SAGUARO_CACTUS,BlockType.BARREL_CACTUS,BlockType.PRICKLY_PEAR,BlockType.FLOWERING_TORCH_CACTUS];let cactus=false;for(const dx of [-.32,.32])for(const dz of [-.32,.32])for(const dy of [0,1])if(cactusTypes.includes(this.world.getBlock(Math.floor(this.pos.x+dx),y+dy,Math.floor(this.pos.z+dz))))cactus=true;const change=this.survival.tick(delta,{age,underwater:isWaterOrWaterlogged(head,Math.floor(this.pos.y+PlayerController.EYE_HEIGHT)),cactus,grounded:this.isGrounded,y:this.pos.y,flying:this.isFlying});this.health=Math.max(0,Math.min(this.maxHealth,this.health+change));}
 
   public resetKeys() {
     this.keys = {};
@@ -74,7 +83,7 @@ export class PlayerController {
         return;
       }
       this.keys[e.code] = true;
-      if (e.code === 'KeyV') {
+      if (e.code === 'KeyV' && !e.repeat) {
         this.isThirdPerson = !this.isThirdPerson;
       }
       if (e.code === 'KeyF') {
@@ -109,6 +118,12 @@ export class PlayerController {
   }
 
   public update(delta: number) {
+    if(this.boatId&&!this.isPaused&&this.health>0){
+      if(this.keys.ShiftLeft||this.keys.ShiftRight){this.onLeaveBoat?.();this.boatId=null;this.boatSpeed=0;this.pos.y+=.6;}
+      else{const dt=Math.min(.05,delta);this.yaw+=((this.keys.KeyA?1:0)-(this.keys.KeyD?1:0))*dt*1.7;const thrust=(this.keys.KeyW?1:0)-(this.keys.KeyS?1:0);this.boatSpeed+=(thrust*5-this.boatSpeed)*Math.min(1,dt*2);const x=this.pos.x-Math.sin(this.yaw)*this.boatSpeed*dt,z=this.pos.z-Math.cos(this.yaw)*this.boatSpeed*dt;let clear=true;for(const dx of [-.65,.65])for(const dz of [-.8,.8])if(BLOCK_DEFS[this.world.getBlock(Math.floor(x+dx),Math.floor(this.pos.y-.1),Math.floor(z+dz))]?.solid)clear=false;if(clear){this.pos.x=x;this.pos.z=z;}else this.boatSpeed=0;const by=Math.floor(this.pos.y-.4),below=this.world.getBlock(Math.floor(this.pos.x),by,Math.floor(this.pos.z));if(isWaterOrWaterlogged(below,by)){let surface=by;for(let i=0;i<4&&isWaterOrWaterlogged(this.world.getBlock(Math.floor(this.pos.x),surface+1,Math.floor(this.pos.z)),surface+1);i++)surface++;this.pos.y+=(surface+1.05-this.pos.y)*Math.min(1,dt*8);}else if(!BLOCK_DEFS[below]?.solid)this.pos.y-=3*dt;this.vel.set(0,0,0);this.isGrounded=false;this.isInWater=false;this.updateCamera();this._eyeOrigin.set(this.pos.x,this.pos.y+PlayerController.EYE_HEIGHT,this.pos.z);this.raycaster.update(this._eyeOrigin,this.yaw,this.pitch,this.world,6,false);return;}
+    }
+
+    if(this.health<=0)return;
     // 1. Water check
     const footY = Math.floor(this.pos.y);
     const chestY = Math.floor(this.pos.y + 1.0);

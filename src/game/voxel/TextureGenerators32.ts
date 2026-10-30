@@ -3383,3 +3383,7 @@ export function generateDoor32(
 }
 
 
+
+export function generateTorch(){const data=new Uint8ClampedArray(32*32*4);for(let y=2;y<31;y++)for(let x=0;x<32;x++){const flame=y<16&&Math.abs(x-15.5)<(y<7?2:5),stem=y>=14&&x>=14&&x<=17;if(!flame&&!stem)continue;const i=(x+y*32)*4;data[i]=flame?255:113;data[i+1]=flame?(Math.abs(x-15)<2?222:128):75;data[i+2]=flame?38:40;data[i+3]=255;}return data;}
+
+export function generateWorkshopTexture(kind:'cauldron'|'rack'|'chalk'|'chest',top=false,color='#eee9db'){const data=new Uint8ClampedArray(4096);const rgb=color.match(/[a-f0-9]{2}/gi)!.map(c=>parseInt(c,16));for(let y=0;y<32;y++)for(let x=0;x<32;x++){let c:number[]|undefined;if(kind==='chest'){c=rgb.map(v=>Math.max(0,v-((y%8===0||x===0||x===31)?30:0)));if(!top&&y>12&&y<21&&x>13&&x<18)c=[202,180,108];}else if(kind==='chalk'){if((x>=13&&x<=18)||(y>=13&&y<=18))c=rgb;}else if(kind==='rack'){if((x>=3&&x<=6)||(x>=25&&x<=28)||(y>=3&&y<=6))c=[131+(x+y)%13,98,61];}else if(top){c=x<4||x>27||y<4||y>27?[91,102,99]:rgb;}else{const n=(x*7+y*3)%17;c=[62+n,71+n,68+n];if(y>25&&x>6&&x<25)c=[25,31,27];}if(c){const i=(x+y*32)*4;data[i]=c[0];data[i+1]=c[1];data[i+2]=c[2];data[i+3]=255;}}return data;}

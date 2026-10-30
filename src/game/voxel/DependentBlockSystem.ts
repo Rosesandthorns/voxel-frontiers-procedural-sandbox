@@ -1,3 +1,5 @@
+import { hasPlantSupport } from './PlantSupport';
+import { CHUNK_H } from './ChunkConstants';
 import { BlockType } from '../../types';
 import { BLOCK_DEFS, isFlintBlock, isPlantBlock, isWaterBlock } from './Blocks';
 import { VoxelWorld } from './VoxelWorld';
@@ -55,7 +57,7 @@ export function breakDependentBlocks(
 ): void {
   // 1. Check blocks resting on top: (brokenX, brokenY + 1, brokenZ) and chain upwards (cacti, tall plants)
   let checkY = brokenY + 1;
-  while (checkY < 256) {
+  while (checkY < CHUNK_H) {
     const aboveBlock = world.getBlock(brokenX, checkY, brokenZ);
     if (aboveBlock === BlockType.AIR) break;
 
@@ -64,7 +66,7 @@ export function breakDependentBlocks(
       // Check if it still has solid support directly beneath it
       const blockBelow = world.getBlock(brokenX, checkY - 1, brokenZ);
       const defBelow = (BLOCK_DEFS as Record<number, { solid?: boolean }>)[blockBelow];
-      if (!defBelow?.solid) {
+      if (isPlantBlock(aboveBlock) ? !hasPlantSupport(world,brokenX,checkY,brokenZ,aboveBlock) : !defBelow?.solid) {
         // Break this dependent block
         world.setBlock(brokenX, checkY, brokenZ, BlockType.AIR);
         onBreak(brokenX, checkY, brokenZ, aboveBlock);

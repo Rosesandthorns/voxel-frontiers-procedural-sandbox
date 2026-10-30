@@ -1,3 +1,7 @@
+import {BETA_CREATURES,betaSpawns,tickCreature,creatureLoot,operateBoat} from './BetaCreatures';
+import {EntitySpecies as S,type ItemDef} from '../../types';
+import {ITEM_REGISTRY} from '../systems/ItemRegistry';
+import {BlockType} from '../../types';
 import * as THREE from 'three';
 import { EntitySpecies, EntityState } from '../../types';
 import { soundManager } from '../audio/SoundFX';
@@ -16,6 +20,15 @@ export interface FloatingParticle {
 }
 
 export class EntityManager {
+  public async boat(action:string,id:string|undefined,pose:{x:number;y:number;z:number},owner='@local'){if(this.world.isRemote)return window.desktop!.online('boat-use',{action,entity:id,pose});return operateBoat([...this.entities.values()].map(e=>e.state),this.world,action,id,pose,owner,state=>{const temporary=this.spawnEntity(state.species,state.x,state.y,state.z),entry=this.entities.get(temporary)!;this.entities.delete(temporary);entry.state=state;this.entities.set(state.id,entry);});}
+  private dormant=new Map<string,EntityState>();
+  public betaChunks=new Set<string>();
+  public localYaw:()=>number=()=>0;
+  public targets:()=>{x:number;y:number;z:number;id?:string}[]=()=>[];
+  public onDamage:((id:string|undefined,amount:number)=>void)|null=null;
+  public onLoot:((item:ItemDef,x:number,y:number,z:number)=>void)|null=null;
+  private attackAt=0;
+  public async attack(id:string,item:ItemDef|null,pose?:{x:number;y:number;z:number}){if(this.world.isRemote)return window.desktop!.online('entity-attack',{entity:id,item});const ent=this.entities.get(id);if(!ent||ent.state.species===S.SHADOW_REAPER||ent.state.species===S.VILLAGER||ent.state.species===S.FORTRESS_KEEPER)return [];const s=ent.state;if(pose&&Math.hypot(pose.x-s.x,pose.y-s.y,pose.z-s.z)>5)return [];s.health-=ITEM_REGISTRY[item?.id??'']?.damage??5;s.vy=4;this.addParticle(s.x,s.y+.5,s.z,0xaa6450,5);if(s.health>0)return [];const loot=creatureLoot(s.species);this.removeEntity(id);return loot;}
   public entities: Map<string, { state: EntityState; mesh: EntityMeshGroup }> = new Map();
   public scene: THREE.Scene;
   public world: VoxelWorld;
@@ -38,7 +51,7 @@ export class EntityManager {
 
     // Connect chunk spawn hook
     this.world.entitySpawnCallbacks.push((speciesName, x, y, z) => {
-      this.spawnEntity(speciesName as EntitySpecies, x, y, z);
+      if(!this.world.isRemote)this.spawnEntity(speciesName as EntitySpecies, x, y, z);
     });
   }
 
@@ -79,6 +92,7 @@ export class EntityManager {
   public removeEntity(id: string) {
     const ent = this.entities.get(id);
     if (ent) {
+      ent.mesh.traverse(node=>{if(node instanceof THREE.Mesh){node.geometry.dispose();if(BETA_CREATURES[ent.state.species])for(const material of Array.isArray(node.material)?node.material:[node.material])material.dispose();}});
       this.scene.remove(ent.mesh);
       this.entities.delete(id);
       if (this.mountedEntityId === id) {
@@ -109,6 +123,7 @@ export class EntityManager {
     playerItem: { name: string; type: string } | null,
     playerPos: THREE.Vector3
   ): { success: boolean; message?: string; healed?: boolean; mounted?: boolean } {
+    if(this.world.isRemote)return {success:false,message:'Wildlife interactions are handled by the host.'};
     const ent = this.entities.get(id);
     if (!ent) return { success: false };
 
@@ -225,7 +240,32 @@ export class EntityManager {
     return { success: true, message: `Interacted with ${state.species}` };
   }
 
+  public saveState():{betaChunks?:string[];states:EntityState[];spawnedChunks:string[];spawnedRiverChunks:string[];wildlifeSpawnTimer:number}{return {betaChunks:[...this.betaChunks],states:[...[...this.entities.values()].map(({state})=>({...state,isRidden:false})),...this.dormant.values()],spawnedChunks:[...this.spawnedChunks],spawnedRiverChunks:[...this.spawnedRiverChunks],wildlifeSpawnTimer:this.wildlifeSpawnTimer};}
+  public restoreState(saved:ReturnType<EntityManager['saveState']>){
+    if(!saved||!Array.isArray(saved.states))return;
+    this.dormant.clear();
+    for(const id of this.entities.keys())this.removeEntity(id);
+    for(const state of saved.states.slice(0,2048)){
+      if(!state||typeof state.id!=='string'||!Object.values(EntitySpecies).includes(state.species)||!['x','y','z','health','rotationY'].every(k=>Number.isFinite((state as any)[k])))continue;
+      if(BETA_CREATURES[state.species]&&!this.world.chunks.has(`${Math.floor(state.x/16)},${Math.floor(state.z/16)}`)){this.dormant.set(state.id,state);continue;}
+      const id=this.spawnEntity(state.species,state.x,state.y,state.z),entry=this.entities.get(id)!;this.entities.delete(id);Object.assign(entry.state,state,{isRidden:false});entry.mesh.rotation.y=state.rotationY;this.entities.set(state.id,entry);
+    }
+    const keys=(list:unknown)=>new Set(Array.isArray(list)?list.filter(k=>typeof k==='string'&&/^-?\d+,-?\d+$/.test(k)).slice(0,1500):[]);
+    this.betaChunks=keys(saved.betaChunks);
+    this.spawnedChunks=keys(saved.spawnedChunks);this.spawnedRiverChunks=keys(saved.spawnedRiverChunks);this.wildlifeSpawnTimer=Number.isFinite(saved.wildlifeSpawnTimer)?saved.wildlifeSpawnTimer:0;
+  }
+
+  public networkSnapshot(){return [...this.entities.values()].slice(0,128).map(({state:s})=>({id:s.id,species:s.species,x:s.x,y:s.y,z:s.z,rotationY:s.rotationY,vx:s.vx,vz:s.vz,isTamed:s.isTamed,health:s.health,uniqueData:s.species===S.SLIME?{color:s.uniqueData.color}:{}}));}
+  public applyNetworkSnapshot(states:any[]){
+    const valid=states.filter(s=>s&&typeof s.id==='string'&&s.id.length<80&&Object.values(EntitySpecies).includes(s.species)&&['x','y','z','rotationY','vx','vz','health'].every(k=>Number.isFinite(s[k])));
+    const ids=new Set(valid.map(s=>s.id));for(const id of this.entities.keys())if(!ids.has(id))this.removeEntity(id);
+    for(const value of valid){let entry=this.entities.get(value.id);if(!entry){const temp=this.spawnEntity(value.species,value.x,value.y,value.z);entry=this.entities.get(temp)!;this.entities.delete(temp);entry.state.id=value.id;this.entities.set(value.id,entry);}Object.assign(entry.state,value);}
+  }
   public update(delta: number, playerPos: THREE.Vector3): { playerBounced?: boolean; playerHealed?: boolean } {
+    if(this.world.isRemote){for(const {state,mesh}of this.entities.values()){mesh.position.lerp(new THREE.Vector3(state.x,state.y,state.z),Math.min(1,delta*12));mesh.rotation.y=state.rotationY;EntityModelFactory.animateEntity(mesh,Math.hypot(state.vx,state.vz),delta);}return {};}
+    for(const [id,state]of this.dormant)if(this.entities.size<120&&this.world.chunks.has(`${Math.floor(state.x/16)},${Math.floor(state.z/16)}`)){const temporary=this.spawnEntity(state.species,state.x,state.y,state.z),entry=this.entities.get(temporary)!;this.entities.delete(temporary);entry.state=state;this.entities.set(id,entry);this.dormant.delete(id);}
+    const targets=[{x:playerPos.x,y:playerPos.y,z:playerPos.z},...this.targets()];
+    const runtime=this.world.captureRuntime?.(),time=runtime?.timeOfDay??.5,age=(runtime?.environment?.totalDays??1)-1+time;
     let result: { playerBounced?: boolean; playerHealed?: boolean } = {};
 
     // Periodic wildlife spawner check (runs every ~1.2 seconds)
@@ -233,6 +273,9 @@ export class EntityManager {
     if (this.wildlifeSpawnTimer > 1.2) {
       this.wildlifeSpawnTimer = 0;
       this.updateWildlifeSpawning(playerPos);
+      if(this.entities.size<120)for(const target of targets)for(let dz=-3;dz<=3;dz++)for(let dx=-3;dx<=3;dx++){const cx=Math.floor(target.x/16)+dx,cz=Math.floor(target.z/16)+dz,key=`${cx},${cz}`;if(!this.world.chunks.has(key)||this.betaChunks.has(key))continue;this.betaChunks.add(key);for(const state of betaSpawns(this.world,this.world.generator,cx,cz)){if(this.entities.size>=120)break;const id=this.spawnEntity(state.species,state.x,state.y,state.z),entry=this.entities.get(id)!;this.entities.delete(id);Object.assign(entry.state,state);this.entities.set(state.id,entry);}}
+      if(this.entities.size<100&&Math.random()<.35){const x=Math.floor(playerPos.x+(Math.random()-.5)*32),z=Math.floor(playerPos.z+(Math.random()-.5)*32),y=Math.floor(playerPos.y);if(this.world.chunks.has(`${Math.floor(x/16)},${Math.floor(z/16)}`)&&this.world.getBlock(x,y,z)===BlockType.AIR&&this.world.getBlock(x,y+1,z)===BlockType.AIR&&this.world.getBlock(x,y-1,z)!==BlockType.AIR&&this.world.lighting.level(x,y+1,z,time)===0)this.spawnEntity(age>=3&&Math.random()<.25?S.SHADOW_REAPER:S.SLIME,x+.5,y,z+.5);}
+
     }
 
     // Loaded chunk render distance in blocks
@@ -242,6 +285,7 @@ export class EntityManager {
     const aiCullDistSq = aiCullDist * aiCullDist;
 
     for (const [id, { state, mesh }] of this.entities.entries()) {
+      if(BETA_CREATURES[state.species]){const loaded=this.world.chunks.has(`${Math.floor(state.x/16)},${Math.floor(state.z/16)}`);if(!loaded){this.dormant.set(id,state);this.removeEntity(id);continue;}if(state.species===S.SLIME&&state.uniqueData.color){const body=mesh.parts.body as THREE.Mesh;if(body)(body.material as THREE.MeshLambertMaterial).color.setHex(state.uniqueData.color);}if(state.species===S.BOAT&&state.uniqueData.rider){const target=state.uniqueData.rider==='@local'?playerPos:targets.find(t=>t.id===state.uniqueData.rider);if(target){state.x=target.x;state.y=target.y-.3;state.z=target.z;state.rotationY=(target as any).yaw??this.localYaw();mesh.position.set(state.x,state.y,state.z);mesh.rotation.y=state.rotationY;EntityModelFactory.animateEntity(mesh,2,delta);continue;}delete state.uniqueData.rider;}const r=tickCreature(state,delta,this.world,targets,this.world.lighting.level(Math.floor(state.x),Math.floor(state.y+1),Math.floor(state.z),time));if(r.remove){if(r.smoke)this.addParticle(state.x,state.y+1,state.z,0x77717f,20,.8);this.removeEntity(id);continue;}if(r.damage)this.onDamage?.(r.damage.id,r.damage.amount);mesh.position.set(state.x,state.y,state.z);mesh.rotation.y=state.rotationY;EntityModelFactory.animateEntity(mesh,Math.hypot(state.vx,state.vz),delta);continue;}
       // Distance to player
       const dx = playerPos.x - state.x;
       const dy = playerPos.y - state.y;

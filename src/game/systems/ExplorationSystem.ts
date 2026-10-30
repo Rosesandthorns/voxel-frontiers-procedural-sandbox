@@ -1,3 +1,4 @@
+import {BETA_CREATURES} from '../entities/BetaCreatures';
 import { BiomeType, DiscoveryStats, EntitySpecies, ExplorationWaypoint } from '../../types';
 import { soundManager } from '../audio/SoundFX';
 
@@ -13,6 +14,7 @@ export interface CreatureEntry {
 }
 
 export const BESTIARY_DATA: Record<EntitySpecies, CreatureEntry> = {
+ ...Object.fromEntries(Object.entries(BETA_CREATURES).map(([species,def])=>[species,{species,title:species,icon:'•',habitat:def.habitat,uniqueMechanic:def.hostile?'Appears in complete darkness. Keep your surroundings lit.':'A resident of '+def.habitat.toLowerCase()+'.',tamingFood:'None',drops:def.meat?'Raw '+def.meat:'None',rarity:'Uncommon'}])) as Record<EntitySpecies,CreatureEntry>,
   [EntitySpecies.REDWOOD_FOX]: {
     species: EntitySpecies.REDWOOD_FOX,
     title: 'The Rust-Coated Prowler',

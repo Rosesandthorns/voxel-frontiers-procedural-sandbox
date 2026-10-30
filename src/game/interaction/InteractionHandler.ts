@@ -1,5 +1,11 @@
+import type {ChestAction} from '../../components/ChestPanel';
+import {insertInventory,inventoryCapacity} from '../systems/InventoryTransfers';
+import {wearTool} from '../systems/ToolDurability';
+import {isWorkshop,isChest} from '../systems/Workshop';
+import {ageFood,foodNutrition,canStackItems} from '../systems/FoodFreshness';
+import { hasPlantSupport } from '../voxel/PlantSupport';
 import * as THREE from 'three';
-import { BlockType, InventorySlot, ItemDef } from '../../types';
+import { EntitySpecies,BlockType, InventorySlot, ItemDef } from '../../types';
 import { soundManager } from '../audio/SoundFX';
 import { EntityManager } from '../entities/EntityManager';
 import { raycastEntityHit } from '../entities/EntityHitboxPhysics';
@@ -28,7 +34,7 @@ import {
 } from '../voxel/Blocks';
 import { VoxelWorld } from '../voxel/VoxelWorld';
 import { CHUNK_H } from '../voxel/ChunkConstants';
-import { getMinedBlockReplacement } from '../voxel/WaterFlora';
+import { isWaterOrWaterlogged, getMinedBlockReplacement } from '../voxel/WaterFlora';
 import { isCropBlock, getCropInfo, CROP_BLOCK_IDS, CROP_BLOCK_BUNDLES } from '../farming/CropBlocks';
 import {
   CROP_SEED_ITEMS,
@@ -91,6 +97,7 @@ export class InteractionHandler {
 
   // Event handlers
   private handlePointerLockChange: () => void;
+  private workshopBusy=false;
   private handleMouseDown: (e: MouseEvent) => void;
   private handleMouseUp: (e: MouseEvent) => void;
   private handleMouseMove: (e: MouseEvent) => void;
@@ -189,7 +196,7 @@ export class InteractionHandler {
         return;
       }
 
-      if (document.pointerLockElement !== this.dom) {
+      if (document.pointerLockElement !== this.dom && !(e.button===2&&player?.targetedBlock?.hit&&isChest(player.targetedBlock.block))) {
         try {
           const p = this.dom.requestPointerLock() as unknown as Promise<void> | undefined;
           if (p && typeof p.catch === 'function') {
@@ -241,15 +248,11 @@ export class InteractionHandler {
         if (clickedEntityId) {
           const ent = entityManager.entities.get(clickedEntityId);
           if (ent) {
-            const dmg = activeItem?.damage || 5;
-            ent.state.health -= dmg;
-            ent.state.vy = 4.0;
+            if(performance.now()-(this as any).lastAttackAt<350)return;(this as any).lastAttackAt=performance.now();
+            const pos={x:ent.state.x,y:ent.state.y,z:ent.state.z};
+            void entityManager.attack(clickedEntityId,activeItem,player.pos).then(items=>{for(const item of items??[])this.callbacks.getDroppedItemManager?.()?.spawnItem(item,pos.x,pos.y+.5,pos.z);}).catch(()=>{});
+            if(activeItem&&(activeItem.type==='tool'||activeItem.type==='weapon')){const worn=wearTool(activeItem);const slots=this.callbacks.getHotbar().map(slot=>({...slot}));slots[selectedIndex]={item:worn,count:worn?1:0};this.callbacks.onUpdateHotbar(slots);}
             soundManager.playBlockBreak();
-            entityManager.addParticle(ent.state.x, ent.state.y + 0.6, ent.state.z, 0xff1744, 10, 0.8);
-            if (ent.state.health <= 0) {
-              soundManager.playChime(300);
-              entityManager.removeEntity(clickedEntityId);
-            }
           }
           return;
         }
@@ -259,6 +262,8 @@ export class InteractionHandler {
           this.startMining(player.targetedBlock, activeItem);
         }
       } else if (e.button === 2) {
+        if(clickedEntityId&&entityManager.entities.get(clickedEntityId)?.state.species===EntitySpecies.BOAT){void entityManager.boat('board',clickedEntityId,player.pos).then(result=>{if(result.id&&result.coords){player.boatId=result.id;player.pos.set(result.coords.x,result.coords.y,result.coords.z);player.onLeaveBoat=()=>void entityManager.boat('leave',result.id,player.pos).catch(()=>{});}}).catch(error=>window.dispatchEvent(new CustomEvent('biome-workshop-notice',{detail:error.message})));return;}
+        if(activeItem?.id==='wooden_boat'&&player.targetedBlock?.hit){const hit=player.targetedBlock;if(this.workshopBusy)return;this.workshopBusy=true;const coords={x:hit.x+.5,y:hit.y,z:hit.z+.5};void entityManager.boat('place',undefined,coords).then(()=>{const slots=this.callbacks.getHotbar().map(s=>({...s}));if(slots[selectedIndex].item?.id==='wooden_boat'){if(--slots[selectedIndex].count<=0)slots[selectedIndex]={item:null,count:0};this.callbacks.onUpdateHotbar(slots);}}).catch(error=>window.dispatchEvent(new CustomEvent('biome-workshop-notice',{detail:error.message}))).finally(()=>this.workshopBusy=false);return;}
         // RIGHT CLICK: Interact with workstation or place block
         e.preventDefault();
 
@@ -373,6 +378,32 @@ export class InteractionHandler {
             return;
           }
 
+          if(isChest(block)){
+            let view:import('../systems/Workshop').WorkshopState|undefined;
+            const run=async(action:ChestAction)=>{
+              if(this.workshopBusy)throw new Error('Please wait.');if(Math.hypot(player.pos.x-x,player.pos.y-y,player.pos.z-z)>9)throw new Error('Move closer to the chest.');this.workshopBusy=true;
+              let held:ItemDef|null=null,reservedCount=0;
+              const deliver=(item:ItemDef,count:number)=>{if(count>0&&!this.addItemToPlayer(item,count))this.callbacks.getDroppedItemManager?.()?.spawnItem(item,player.pos.x,player.pos.y+.5,player.pos.z,count);};
+              try{
+                let request:ItemDef|null=null;
+                if(typeof action==='object'&&'store'in action){const source=action.store==='hotbar'?this.callbacks.getHotbar():this.callbacks.getInventory?.()??[],slot=source[action.index];if(!slot?.item)throw new Error('That slot is empty.');held=slot.item;reservedCount=Math.min(slot.count,Math.max(1,Math.min(64,action.count??64)));const next=source.map(s=>({...s}));next[action.index].count-=reservedCount;if(!next[action.index].count)next[action.index]={item:null,count:0};if(action.store==='hotbar')this.callbacks.onUpdateHotbar(next);else this.callbacks.onUpdateInventory?.(next);request={...held,transferCount:reservedCount} as ItemDef;}
+                if(typeof action==='object'&&'take'in action){const item=view?.slots?.[action.take]?.item;if(!item)throw new Error('That slot is empty.');const capacity=inventoryCapacity([...this.callbacks.getHotbar(),...(this.callbacks.getInventory?.()??[])],item);if(!capacity)throw new Error('Your inventory is full.');request={...ITEM_REGISTRY.chalk,id:'@take:'+action.take+':'+Math.min(capacity,action.count??64)};}
+                let result;try{result=await world.useWorkshop({x,y,z},request);}catch(error){if(held)deliver(held,reservedCount);throw error;}
+                view=result.state;if(held)deliver(held,Math.max(0,reservedCount-result.consume));if(result.output)deliver(result.output,result.outputCount??1);return result;
+              }finally{this.workshopBusy=false;}
+            };
+            window.dispatchEvent(new CustomEvent('biome-chest-open',{detail:{name:BLOCK_DEFS[block]?.name??'Chest',run}}));return;
+          }
+
+          if(isWorkshop(block)){
+            if(this.workshopBusy)return;const input=activeItem??null,hasRoom=[...hotbar,...(this.callbacks.getInventory?.()??[])].some(s=>!s.item)||(input&&hotbar[selectedIndex].count===1);
+            if(!hasRoom){window.dispatchEvent(new CustomEvent('biome-workshop-notice',{detail:'Free an inventory slot before using this workshop.'}));return;}
+            this.workshopBusy=true;
+            if(input){const reserved=hotbar.map(s=>({...s}));reserved[selectedIndex].count--;if(!reserved[selectedIndex].count)reserved[selectedIndex]={item:null,count:0};this.callbacks.onUpdateHotbar(reserved);}
+            const deliver=(item:ItemDef)=>{if(!this.addItemToPlayer(item,1))this.callbacks.getDroppedItemManager?.()?.spawnItem(item,player.pos.x,player.pos.y+.5,player.pos.z);};
+            void world.useWorkshop({x,y,z},input).then(result=>{if(input&&!result.consume)deliver(input);if(result.output)deliver(result.output);window.dispatchEvent(new CustomEvent('biome-workshop-notice',{detail:result.message}));}).catch(error=>{if(input)deliver(input);window.dispatchEvent(new CustomEvent('biome-workshop-notice',{detail:error.message||'Workshop unavailable.'}));}).finally(()=>this.workshopBusy=false);return;
+          }
+
           // 1. Right-click harvesting mature crops & perennial crops
           const cropInfo = getCropInfo(block);
           const isWildSeaCabbage = block === CROP_BLOCK_IDS.WILD_SEA_CABBAGE;
@@ -429,6 +460,7 @@ export class InteractionHandler {
 
           // 2. Eating food items
           if (activeItem && activeItem.type === 'food') {
+            if(!player.survival.eat(foodNutrition(activeItem,player.survival.state.lastAge??0)))return;
             soundManager.playStep('organic');
             soundManager.playChime(600);
             entityManager.addParticle(player.pos.x, player.pos.y + 1.2, player.pos.z, 0x22c55e, 8, 0.4);
@@ -689,9 +721,14 @@ export class InteractionHandler {
             const py = y + ny;
             const pz = z + nz;
 
+            if(py<=0 || !Number.isSafeInteger(py)) return;
+            const existing=world.getBlock(px,py,pz);
+            if(existing!==BlockType.AIR && !isPlantBlock(existing) && !isWaterOrWaterlogged(existing,py)) return;
+            if(!hasPlantSupport(world,px,py,pz,activeItem.blockId)) return;
+            if(isDoorItem(activeItem) && !BLOCK_DEFS[world.getBlock(px,py-1,pz)]?.solid) return;
             // Handle 2-block tall door placement
             if (isDoorItem(activeItem) || isDoorBottom(activeItem.blockId)) {
-              if (py + 1 < CHUNK_H) {
+              if (Number.isSafeInteger(py+1)) {
                 const bBottom = world.getBlock(px, py, pz);
                 const bTop = world.getBlock(px, py + 1, pz);
                 if (
@@ -768,6 +805,7 @@ export class InteractionHandler {
     };
 
     this.handleWheel = (e: WheelEvent) => {
+      if(this.callbacks.isPaused?.() || document.pointerLockElement !== this.dom) return;
       const selectedIndex = this.callbacks.getSelectedHotbarIndex();
       if (e.deltaY > 0) {
         this.callbacks.onSelectHotbar((selectedIndex + 1) % 9);
@@ -985,65 +1023,10 @@ export class InteractionHandler {
    * Accepts an optional baseHotbar to chain durability and drop mutations atomically.
    */
   public addItemToPlayer(item: ItemDef, count: number = 1, baseHotbar?: InventorySlot[]): boolean {
-    const hotbar = baseHotbar || this.callbacks.getHotbar();
-    const newHotbar = hotbar.map((s) => ({ ...s }));
-
-    // 1. Try stacking in hotbar
-    for (const slot of newHotbar) {
-      if (slot.item?.id === item.id && slot.count < item.maxStack) {
-        const canAdd = Math.min(count, item.maxStack - slot.count);
-        slot.count += canAdd;
-        count -= canAdd;
-        if (count <= 0) {
-          this.callbacks.onUpdateHotbar(newHotbar);
-          return true;
-        }
-      }
-    }
-
-    // 2. Try empty slot in hotbar
-    for (const slot of newHotbar) {
-      if (!slot.item) {
-        slot.item = item;
-        slot.count = count;
-        this.callbacks.onUpdateHotbar(newHotbar);
-        return true;
-      }
-    }
-
-    // Update hotbar if partial was added
-    this.callbacks.onUpdateHotbar(newHotbar);
-
-    // 3. Try backpack / inventory
-    if (this.callbacks.getInventory && this.callbacks.onUpdateInventory) {
-      const inventory = this.callbacks.getInventory();
-      const newInventory = inventory.map((s) => ({ ...s }));
-
-      for (const slot of newInventory) {
-        if (slot.item?.id === item.id && slot.count < item.maxStack) {
-          const canAdd = Math.min(count, item.maxStack - slot.count);
-          slot.count += canAdd;
-          count -= canAdd;
-          if (count <= 0) {
-            this.callbacks.onUpdateInventory(newInventory);
-            return true;
-          }
-        }
-      }
-
-      for (const slot of newInventory) {
-        if (!slot.item) {
-          slot.item = item;
-          slot.count = count;
-          this.callbacks.onUpdateInventory(newInventory);
-          return true;
-        }
-      }
-
-      this.callbacks.onUpdateInventory(newInventory);
-    }
-
-    return true;
+    item=ageFood(item,this.callbacks.getPlayer()?.survival.state.lastAge??0);
+    const updated=insertInventory(baseHotbar??this.callbacks.getHotbar(),this.callbacks.getInventory?.()??[],item,count);
+    if(!updated){if(baseHotbar)this.callbacks.onUpdateHotbar(baseHotbar);return false;}
+    this.callbacks.onUpdateHotbar(updated.hotbar);this.callbacks.onUpdateInventory?.(updated.inventory);return true;
   }
 
   /**
@@ -1307,6 +1290,7 @@ export class InteractionHandler {
 
         // Replace block in world
         const replacementBlock = getMinedBlockReplacement(block, y);
+        if([BlockType.SAGUARO_CACTUS,BlockType.BARREL_CACTUS,BlockType.PRICKLY_PEAR,BlockType.FLOWERING_TORCH_CACTUS].includes(block))this.callbacks.getPlayer()?.damage(2);
         world.setBlock(x, y, z, replacementBlock);
         explorationSystem.stats.blocksMined++;
 

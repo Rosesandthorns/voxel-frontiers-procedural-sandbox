@@ -1,3 +1,4 @@
+import {canStackItems} from '../game/systems/FoodFreshness';
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { soundManager } from '../game/audio/SoundFX';
 import {
@@ -386,7 +387,7 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
     const maxStack = item.maxStack || 64;
 
     for (const slot of targetHotbar) {
-      if (slot.item?.id === item.id && slot.count < maxStack) {
+      if (canStackItems(slot.item,item) && slot.count < maxStack) {
         const canTake = Math.min(remaining, maxStack - slot.count);
         slot.count += canTake;
         remaining -= canTake;
@@ -405,7 +406,7 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
     }
 
     for (const slot of targetInventory) {
-      if (slot.item?.id === item.id && slot.count < maxStack) {
+      if (canStackItems(slot.item,item) && slot.count < maxStack) {
         const canTake = Math.min(remaining, maxStack - slot.count);
         slot.count += canTake;
         remaining -= canTake;
@@ -899,7 +900,7 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
         srcSlot.item = null;
         srcSlot.count = 0;
       }
-    } else if (destGridSlot.item.id === itemToPlace.id) {
+    } else if (canStackItems(destGridSlot.item,itemToPlace)) {
       // Target grid slot already has the SAME item -> stack them up to maxStack!
       if (destGridSlot.count >= maxStack) return;
       const canAdd = maxStack - destGridSlot.count;
@@ -1006,7 +1007,7 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
       const destGridSlot = newGrid[targetGridIndex];
       if (!srcGridSlot.item || srcGridSlot.count <= 0) return;
 
-      if (destGridSlot.item && destGridSlot.item.id === srcGridSlot.item.id) {
+      if (destGridSlot.item && canStackItems(destGridSlot.item,srcGridSlot.item)) {
         // Stack same items inside the 3x3 crafting grid
         const maxStack = destGridSlot.item.maxStack || 64;
         const canTake = Math.max(0, maxStack - destGridSlot.count);
@@ -1063,7 +1064,7 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
         destSlot.item = gridSlot.item;
         destSlot.count = gridSlot.count;
         newGrid[src.index] = { item: null, count: 0 };
-      } else if (destSlot.item.id === gridSlot.item.id && destSlot.count < (destSlot.item.maxStack || 64)) {
+      } else if (canStackItems(destSlot.item,gridSlot.item) && destSlot.count < (destSlot.item.maxStack || 64)) {
         const maxStack = destSlot.item.maxStack || 64;
         const canTake = maxStack - destSlot.count;
         const take = Math.min(gridSlot.count, canTake);
@@ -1098,7 +1099,7 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
 
       if (!srcSlot.item) return;
 
-      if (destSlot.item && srcSlot.item.id === destSlot.item.id && destSlot.count < (destSlot.item.maxStack || 64)) {
+      if (destSlot.item && canStackItems(srcSlot.item,destSlot.item) && destSlot.count < (destSlot.item.maxStack || 64)) {
         const maxStack = destSlot.item.maxStack || 64;
         const canTake = maxStack - destSlot.count;
         const take = Math.min(srcSlot.count, canTake);
@@ -1174,7 +1175,7 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
         srcSlot.count = 0;
       }
       nextF.smeltProgress = 0;
-    } else if (destSlot.item.id === itemToPlace.id) {
+    } else if (canStackItems(destSlot.item,itemToPlace)) {
       if (destSlot.count >= maxStack) return;
       const canAdd = maxStack - destSlot.count;
       const take = placeAll ? Math.min(srcSlot.count, canAdd) : Math.min(1, srcSlot.count, canAdd);
@@ -1237,7 +1238,7 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
         srcSlot.item = null;
         srcSlot.count = 0;
       }
-    } else if (destSlot.item.id === itemToPlace.id) {
+    } else if (canStackItems(destSlot.item,itemToPlace)) {
       if (destSlot.count >= maxStack) return;
       const canAdd = maxStack - destSlot.count;
       const take = placeAll ? Math.min(srcSlot.count, canAdd) : Math.min(1, srcSlot.count, canAdd);
@@ -1582,7 +1583,7 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
         srcSlot.item = null;
         srcSlot.count = 0;
       }
-    } else if (destSlot.item.id === itemToPlace.id) {
+    } else if (canStackItems(destSlot.item,itemToPlace)) {
       if (destSlot.count >= maxStack) return;
       const canAdd = maxStack - destSlot.count;
       const take = placeAll ? Math.min(srcSlot.count, canAdd) : Math.min(1, srcSlot.count, canAdd);
@@ -2010,7 +2011,7 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
         return;
       }
 
-      if (srcSlot.item && destSlot.item && srcSlot.item.id === destSlot.item.id && destSlot.count < (destSlot.item.maxStack || 64)) {
+      if (srcSlot.item && destSlot.item && canStackItems(srcSlot.item,destSlot.item) && destSlot.count < (destSlot.item.maxStack || 64)) {
         const maxStack = destSlot.item.maxStack || 64;
         const canTake = maxStack - destSlot.count;
         const take = Math.min(srcSlot.count, canTake);

@@ -1,3 +1,4 @@
+import { workerBudget } from './WorkerBudget';
 /**
  * ChunkWorkerPool
  *
@@ -30,6 +31,7 @@ interface PendingRequest {
   cz: number;
   id: number;
   priority: number;
+  retainForGuest?: boolean;
   resolve: (result: WorkerChunkResult) => void;
 }
 
@@ -44,9 +46,9 @@ export class ChunkWorkerPool {
   private inflight: Map<number, PendingRequest> = new Map();
   private nextId = 0;
 
-  constructor(seed: number) {
+  constructor(seed: number, generationVersion = 2, legacyChunks: string[] = [], previousChunks:Record<string,number> = {}) {
     // Use as many threads as available minus 1 for the main thread, clamped 2-6
-    const count = Math.max(2, Math.min(6, (navigator.hardwareConcurrency ?? 4) - 1));
+    const count = workerBudget().generation;
 
     for (let i = 0; i < count; i++) {
       // Vite handles the ?worker import at build time
@@ -56,17 +58,17 @@ export class ChunkWorkerPool {
       );
 
       worker.addEventListener('message', (e: MessageEvent) => this._onMessage(e));
-      worker.postMessage({ type: 'init', seed });
+      worker.postMessage({ type: 'init', seed, generationVersion, legacyChunks, previousChunks });
 
       this.workers.push({ worker, busy: false });
     }
   }
 
   /** Asynchronously generate a chunk on a background thread. */
-  public request(cx: number, cz: number, priority: number = 0): Promise<WorkerChunkResult> {
+  public request(cx: number, cz: number, priority: number = 0, retainForGuest = false): Promise<WorkerChunkResult> {
     return new Promise((resolve) => {
       const id = this.nextId++;
-      const pending: PendingRequest = { cx, cz, id, priority, resolve };
+      const pending: PendingRequest = { cx, cz, id, priority, retainForGuest, resolve };
 
       const free = this.workers.find(w => !w.busy);
       if (free) {
@@ -92,6 +94,7 @@ export class ChunkWorkerPool {
 
     for (let i = 0; i < this.queue.length; i++) {
       const req = this.queue[i];
+      if(req.retainForGuest){kept.push(req);continue;}
       const dx = req.cx - pcx;
       const dz = req.cz - pcz;
       const distSq = dx * dx + dz * dz;
@@ -114,7 +117,7 @@ export class ChunkWorkerPool {
   /** Cancel any queued (not yet dispatched) request for this chunk. */
   public cancel(cx: number, cz: number): void {
     const key = `${cx},${cz}`;
-    this.queue = this.queue.filter(p => `${p.cx},${p.cz}` !== key);
+    this.queue = this.queue.filter(p => p.retainForGuest || `${p.cx},${p.cz}` !== key);
   }
 
   public destroy(): void {

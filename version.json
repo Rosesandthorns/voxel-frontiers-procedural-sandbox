@@ -1,10 +1,13 @@
 {
-  "version": "0.0.1-pre",
-  "updateName": "DevTest",
+  "version": "0.3.0",
+  "updateName": "Bigger Than Ever",
   "updateFeatures": [
-    "Placeholder feature 1",
-    "Placeholder feature 2",
-    "Placeholder feature 3"
-  ],
-  "updateSize": "1.20mb"
+    "Grand mountain ranges and rare summit groves",
+    "Villages and mountain fortresses",
+    "New textured wildlife and darkness creatures",
+    "Survival, cauldrons, food preservation and drying racks",
+    "Wood-specific chests with inventory transfers",
+    "Boats and tier-based tool durability",
+    "Procedural pixel-art item icons and world streaming fixes"
+  ]
 }

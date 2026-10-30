@@ -1,0 +1,224 @@
+{
+  "source": "EOS-Contrib/eos_plugin_for_unity@f876859832cbd92f6ee8ebd4424d34bae857e10f, EOS 1.19.2.1",
+  "structs": {
+    "EOS_InitializeOptions": {
+      "ApiVersion": "int32_t",
+      "AllocateMemoryFunction": "void *",
+      "ReallocateMemoryFunction": "void *",
+      "ReleaseMemoryFunction": "void *",
+      "ProductName": "str",
+      "ProductVersion": "str",
+      "Reserved": "void *",
+      "SystemInitializeOptions": "void *",
+      "OverrideThreadAffinity": "void *"
+    },
+    "EOS_Platform_ClientCredentials": {
+      "ClientId": "str",
+      "ClientSecret": "str"
+    },
+    "EOS_Platform_Options": {
+      "ApiVersion": "int32_t",
+      "Reserved": "void *",
+      "ProductId": "str",
+      "SandboxId": "str",
+      "ClientCredentials": "EOS_Platform_ClientCredentials",
+      "bIsServer": "int32_t",
+      "EncryptionKey": "str",
+      "OverrideCountryCode": "str",
+      "OverrideLocaleCode": "str",
+      "DeploymentId": "str",
+      "Flags": "uint64_t",
+      "CacheDirectory": "str",
+      "TickBudgetInMilliseconds": "uint32_t",
+      "RTCOptions": "void *",
+      "IntegratedPlatformOptionsContainerHandle": "void *",
+      "SystemSpecificOptions": "void *",
+      "TaskNetworkTimeoutSeconds": "void *"
+    },
+    "EOS_Connect_Credentials": {
+      "ApiVersion": "int32_t",
+      "Token": "str",
+      "Type": "int32_t"
+    },
+    "EOS_Connect_LoginOptions": {
+      "ApiVersion": "int32_t",
+      "Credentials": "EOS_Connect_Credentials *",
+      "UserLoginInfo": "void *"
+    },
+    "EOS_Connect_LoginCallbackInfo": {
+      "ResultCode": "int32_t",
+      "ClientData": "void *",
+      "LocalUserId": "void *",
+      "ContinuanceToken": "void *"
+    },
+    "EOS_Connect_CreateUserOptions": {
+      "ApiVersion": "int32_t",
+      "ContinuanceToken": "void *"
+    },
+    "EOS_Connect_CreateUserCallbackInfo": {
+      "ResultCode": "int32_t",
+      "ClientData": "void *",
+      "LocalUserId": "void *"
+    },
+    "EOS_P2P_SocketId": {
+      "ApiVersion": "int32_t",
+      "SocketName": "char[33]"
+    },
+    "EOS_P2P_SetRelayControlOptions": {
+      "ApiVersion": "int32_t",
+      "RelayControl": "int32_t"
+    },
+    "EOS_P2P_GetRelayControlOptions": {
+      "ApiVersion": "int32_t"
+    },
+    "EOS_P2P_SendPacketOptions": {
+      "ApiVersion": "int32_t",
+      "LocalUserId": "void *",
+      "RemoteUserId": "void *",
+      "SocketId": "EOS_P2P_SocketId *",
+      "Channel": "uint8_t",
+      "DataLengthBytes": "uint32_t",
+      "Data": "void *",
+      "bAllowDelayedDelivery": "int32_t",
+      "Reliability": "int32_t",
+      "bDisableAutoAcceptConnection": "int32_t"
+    },
+    "EOS_P2P_ReceivePacketOptions": {
+      "ApiVersion": "int32_t",
+      "LocalUserId": "void *",
+      "MaxDataSizeBytes": "uint32_t",
+      "RequestedChannel": "void *"
+    },
+    "EOS_P2P_AcceptConnectionOptions": {
+      "ApiVersion": "int32_t",
+      "LocalUserId": "void *",
+      "RemoteUserId": "void *",
+      "SocketId": "EOS_P2P_SocketId *"
+    },
+    "EOS_P2P_CloseConnectionsOptions": {
+      "ApiVersion": "int32_t",
+      "LocalUserId": "void *",
+      "SocketId": "EOS_P2P_SocketId *"
+    },
+    "EOS_Lobby_CreateLobbyOptions": {
+      "ApiVersion": "int32_t",
+      "LocalUserId": "void *",
+      "MaxLobbyMembers": "uint32_t",
+      "PermissionLevel": "int32_t",
+      "bPresenceEnabled": "int32_t",
+      "bAllowInvites": "int32_t",
+      "BucketId": "str",
+      "bDisableHostMigration": "int32_t",
+      "bEnableRTCRoom": "int32_t",
+      "LocalRTCOptions": "void *",
+      "LobbyId": "str",
+      "bEnableJoinById": "int32_t",
+      "bRejoinAfterKickRequiresInvite": "int32_t",
+      "AllowedPlatformIds": "void *",
+      "AllowedPlatformIdsCount": "uint32_t",
+      "bCrossplayOptOut": "int32_t",
+      "RTCRoomJoinActionType": "int32_t"
+    },
+    "EOS_Lobby_CreateLobbyCallbackInfo": {
+      "ResultCode": "int32_t",
+      "ClientData": "void *",
+      "LobbyId": "str"
+    },
+    "EOS_Lobby_JoinLobbyByIdOptions": {
+      "ApiVersion": "int32_t",
+      "LobbyId": "str",
+      "LocalUserId": "void *",
+      "bPresenceEnabled": "int32_t",
+      "LocalRTCOptions": "void *",
+      "bCrossplayOptOut": "int32_t",
+      "RTCRoomJoinActionType": "int32_t"
+    },
+    "EOS_Lobby_JoinLobbyByIdCallbackInfo": {
+      "ResultCode": "int32_t",
+      "ClientData": "void *",
+      "LobbyId": "str"
+    },
+    "EOS_Lobby_LeaveLobbyOptions": {
+      "ApiVersion": "int32_t",
+      "LocalUserId": "void *",
+      "LobbyId": "str"
+    },
+    "EOS_Lobby_LeaveLobbyCallbackInfo": {
+      "ResultCode": "int32_t",
+      "ClientData": "void *",
+      "LobbyId": "str"
+    },
+    "EOS_Lobby_CopyLobbyDetailsHandleOptions": {
+      "ApiVersion": "int32_t",
+      "LobbyId": "str",
+      "LocalUserId": "void *"
+    },
+    "EOS_LobbyDetails_CopyInfoOptions": {
+      "ApiVersion": "int32_t"
+    },
+    "EOS_LobbyDetails_Info": {
+      "ApiVersion": "int32_t",
+      "LobbyId": "str",
+      "LobbyOwnerUserId": "void *",
+      "PermissionLevel": "int32_t",
+      "AvailableSlots": "uint32_t",
+      "MaxMembers": "uint32_t",
+      "bAllowInvites": "int32_t",
+      "BucketId": "str",
+      "bAllowHostMigration": "int32_t",
+      "bRTCRoomEnabled": "int32_t",
+      "bAllowJoinById": "int32_t",
+      "bRejoinAfterKickRequiresInvite": "int32_t",
+      "bPresenceEnabled": "int32_t",
+      "AllowedPlatformIds": "void *",
+      "AllowedPlatformIdsCount": "uint32_t"
+    },
+    "EOS_LobbyDetails_GetMemberByIndexOptions": {
+      "ApiVersion": "int32_t",
+      "MemberIndex": "uint32_t"
+    },
+    "EOS_LobbyDetails_GetMemberCountOptions": {
+      "ApiVersion": "int32_t"
+    },
+    "EOS_Connect_QueryProductUserIdMappingsOptions": {
+      "ApiVersion": "int32_t",
+      "LocalUserId": "void *",
+      "AccountIdType_DEPRECATED": "int32_t",
+      "ProductUserIds": "void **",
+      "ProductUserIdCount": "uint32_t"
+    },
+    "EOS_Connect_QueryProductUserIdMappingsCallbackInfo": {
+      "ResultCode": "int32_t",
+      "ClientData": "void *",
+      "LocalUserId": "void *"
+    },
+    "EOS_Connect_GetProductUserIdMappingOptions": {
+      "ApiVersion": "int32_t",
+      "LocalUserId": "void *",
+      "AccountIdType": "int32_t",
+      "TargetProductUserId": "void *"
+    },
+    "EOS_Lobby_KickMemberOptions": {
+      "ApiVersion": "int32_t",
+      "LocalUserId": "void *",
+      "LobbyId": "str",
+      "TargetUserId": "void *"
+    },
+    "EOS_Lobby_KickMemberCallbackInfo": {
+      "ResultCode": "int32_t",
+      "ClientData": "void *",
+      "LobbyId": "str"
+    },
+    "EOS_P2P_AddNotifyPeerConnectionRequestOptions": {
+      "ApiVersion": "int32_t",
+      "LocalUserId": "void *",
+      "SocketId": "EOS_P2P_SocketId *"
+    },
+    "EOS_P2P_OnIncomingConnectionRequestInfo": {
+      "ClientData": "void *",
+      "LocalUserId": "void *",
+      "RemoteUserId": "void *",
+      "SocketId": "EOS_P2P_SocketId *"
+    }
+  }
+}

@@ -66,7 +66,7 @@ export class FluidSimulation {
   }
 
   public queueCoord(x: number, y: number, z: number) {
-    if (y < 0 || y >= CHUNK_H) return;
+    if (!Number.isSafeInteger(y) || y < 0) return;
     this.scheduleNeighbors(x, y, z);
   }
 
@@ -77,7 +77,7 @@ export class FluidSimulation {
   }
 
   public scheduleCoord(x: number, y: number, z: number) {
-    if (y >= 0 && y < CHUNK_H) {
+    if (Number.isSafeInteger(y) && y >= 0) {
       this.activeQueue.add(`${x},${y},${z}`);
     }
   }
@@ -92,7 +92,7 @@ export class FluidSimulation {
   }
 
   private _addNextCoord(x: number, y: number, z: number) {
-    if (y >= 0 && y < CHUNK_H) {
+    if (Number.isSafeInteger(y) && y >= 0) {
       this.nextQueue.add(`${x},${y},${z}`);
     }
   }
@@ -117,7 +117,7 @@ export class FluidSimulation {
     const baseX = chunk.cx * CHUNK_W;
     const baseZ = chunk.cz * CHUNK_D;
     const minY = Math.max(1, SEA_LEVEL - 4);
-    const maxY = Math.min(CHUNK_H - 1, chunk.maxY || CHUNK_H - 1);
+    const maxY = Math.min(chunk.voxels.length/256 - 1, chunk.maxY || chunk.voxels.length/256 - 1);
     if (maxY < minY) return;
 
     for (let y = minY; y <= maxY; y++) {
@@ -206,7 +206,7 @@ export class FluidSimulation {
     this.activeQueue.clear();
 
     const setBlockInternal = (x: number, y: number, z: number, type: BlockType): boolean => {
-      if (y < 0 || y >= CHUNK_H) return false;
+      if (!Number.isSafeInteger(y) || y < 0) return false;
       const current = this.world.getBlock(x, y, z);
       if (current === type) return false;
 
@@ -261,7 +261,7 @@ export class FluidSimulation {
       const y = parseInt(parts[1], 10);
       const z = parseInt(parts[2], 10);
 
-      if (y < 0 || y >= CHUNK_H) continue;
+      if (!Number.isSafeInteger(y) || y < 0) continue;
       const pdx = x - playerX;
       const pdz = z - playerZ;
       if (pdx * pdx + pdz * pdz > maxActiveDistSq) continue;
@@ -464,7 +464,7 @@ export function getWaterFlowVector(
   const by = Math.floor(worldY);
   const bz = Math.floor(worldZ);
 
-  if (by < 0 || by >= CHUNK_H) return result;
+  if (!Number.isSafeInteger(by) || by < 0) return result;
 
   const currentBlock = world.getBlock(bx, by, bz);
 

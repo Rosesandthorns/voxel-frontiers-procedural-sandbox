@@ -52,7 +52,7 @@ export interface VerdantSubBiomeDef {
   hasIcePuddles?: boolean;
   snowStackHeight?: number;
   isRedwoodForest?: boolean;
-  treeTypeOverride?: 'ghost' | 'palm' | 'kapok' | 'banyan' | 'strangler' | 'mahogany' | 'ceiba' | 'rainforest_oak' | 'everfrost' | 'redwood';
+  treeTypeOverride?: 'cloud_cedar' | 'amber_pine' | 'birch' | 'juniper' | 'limeleaf' | 'ghost' | 'palm' | 'kapok' | 'banyan' | 'strangler' | 'mahogany' | 'ceiba' | 'rainforest_oak' | 'everfrost' | 'redwood';
 }
 
 export type SubBiomeDef = VerdantSubBiomeDef;

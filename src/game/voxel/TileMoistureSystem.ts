@@ -89,16 +89,8 @@ export function isProtectedFromRain(
   wy: number,
   wz: number
 ): boolean {
-  for (let y = wy + 1; y < CHUNK_H; y++) {
-    const block = world.getBlock(wx, y, wz);
-    if (block !== BlockType.AIR) {
-      const def = BLOCK_DEFS[block];
-      if (def?.solid || (def && !def.transparent)) {
-        return true;
-      }
-    }
-  }
-  return false;
+  const chunk=world.chunks.get(`${Math.floor(wx/16)},${Math.floor(wz/16)}`);
+  return !!chunk&&chunk.columnTop(wx&15,wz&15,b=>{const d=BLOCK_DEFS[b];return b!==BlockType.AIR&&!!d&&(d.solid||!d.transparent);})>wy;
 }
 
 interface PendingTransition {
@@ -140,7 +132,7 @@ export class TileMoistureSystem {
 
     // Check only surface/near-surface layers (y >= 40) where sand and farmland can exist
     const minY = 40;
-    const maxY = Math.min(CHUNK_H - 1, chunk.maxY + 1);
+    const maxY = Math.min(chunk.voxels.length/256 - 1, chunk.maxY + 1);
 
     for (let lz = 0; lz < CHUNK_D; lz++) {
       for (let lx = 0; lx < CHUNK_W; lx++) {
@@ -256,7 +248,7 @@ export class TileMoistureSystem {
       for (let lx = 0; lx < CHUNK_W; lx++) {
         const colKey = lx + (lz << 4);
 
-        for (let ly = Math.min(CHUNK_H - 1, chunk.maxY + 1); ly >= 1; ly--) {
+        for (let ly = Math.min(chunk.voxels.length/256 - 1, chunk.maxY + 1); ly >= 1; ly--) {
           const block = chunk.getBlock(lx, ly, lz);
           if (block === BlockType.AIR) continue;
 

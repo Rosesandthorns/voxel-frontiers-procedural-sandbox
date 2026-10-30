@@ -1,0 +1,12 @@
+import fs from 'node:fs';import path from 'node:path';import {createRequire} from 'node:module';
+const require=createRequire(import.meta.url),{_electron}=require('playwright');
+const profile=path.resolve('../../work/grand-mountain-lookout-profile'),folder=path.join(profile,'saves');fs.mkdirSync(folder,{recursive:true});
+const slots=n=>Array.from({length:n},()=>({item:null,count:0}));
+const state={id:'mountain-lookout',name:'Mountain Lookout',seed:1337,generationVersion:4,createdAt:Date.now(),timestamp:Date.now(),hotbar:slots(9),inventory:slots(27),health:20,stamina:100,coords:{x:-23712,y:440,z:-15028},yaw:0,timeOfDay:.35,settings:{renderDistance:14,fov:85,dayNightSpeed:0,fogDensity:.003,enableThirdPerson:false,enableFlight:true,soundVolume:.5,ambientVolume:.5,effectsVolume:.5,footstepsVolume:.5,timeOfDay:.35}};
+fs.writeFileSync(path.join(folder,'mountain-lookout.json'),JSON.stringify(state));
+const app=await _electron.launch({executablePath:require('electron'),args:['.'],env:{...process.env,VOXEL_USER_DATA:profile}});
+const page=await app.firstWindow();await app.evaluate(({BrowserWindow})=>{const win=BrowserWindow.getAllWindows()[0];win.show();win.focus();});
+await page.getByRole('button',{name:'Play Mountain Lookout',exact:true}).click();await page.getByRole('button',{name:'Enter world',exact:true}).click({timeout:120000});
+await page.waitForTimeout(1500);await page.mouse.move(640,400);await page.mouse.move(640,610,{steps:8});await page.waitForTimeout(2500);await page.screenshot({path:'../../outputs/biome-grand-mountain-lookout-live.png'});
+console.log('Mountain Lookout is open: seed 1337, player (-23712, 440, -15028), summit near (-23712, 381, -15196), flight enabled.');
+await new Promise(resolve=>app.on('close',resolve));

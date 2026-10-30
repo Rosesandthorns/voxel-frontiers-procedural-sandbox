@@ -1,0 +1,14 @@
+import assert from 'node:assert/strict';import {mountainAt,MOUNTAIN_BIOMES} from '../src/game/voxel/Mountains';import {WorldGenerator} from '../src/game/voxel/WorldGenerator';import {BlockType} from '../src/types';
+const params={continentalness:.6,temperature:0,flatness:0,humidity:0,vegetation:0,weirdness:0};let peak:any;
+for(let x=-10000;x<=10000&&!peak;x+=80)for(let z=-10000;z<=10000;z+=80){const m=mountainAt(x,z,42,params);if(m&&m.strength>.9){peak={x,z,...m};break;}}
+assert.ok(peak);assert.ok(peak.lift>35);assert.equal(mountainAt(0,0,42,params),null);assert.equal(mountainAt(peak.x,peak.z,42,{...params,continentalness:-.3}),null);
+assert.equal(mountainAt(peak.x,peak.z,42,{...params,temperature:-.6})!.biome.id,'snowy_ranges');assert.equal(mountainAt(peak.x,peak.z,42,{...params,temperature:.7})!.biome.id,'desert_ranges');
+for(let dx=-20;dx<20;dx++){const a=mountainAt(peak.x+dx,peak.z,42,params)!,b=mountainAt(peak.x+dx+1,peak.z,42,params)!;assert.ok(Math.abs(a.lift-b.lift)<2);}
+const old=new WorldGenerator(42,2),fresh=new WorldGenerator(42,3),blend=new WorldGenerator(42,3,[],{'0,0':2});for(let z=1;z<16;z+=3){assert.equal(blend.getHeightAt(15,z,blend.getSubBiomeAt(15,z)),old.getHeightAt(15,z,old.getSubBiomeAt(15,z)));assert.ok(Math.abs(blend.getHeightAt(16,z,blend.getSubBiomeAt(16,z))-old.getHeightAt(16,z,old.getSubBiomeAt(16,z)))<=1);}
+for(const biome of [MOUNTAIN_BIOMES.cloud,MOUNTAIN_BIOMES.amber]){const g:any=new WorldGenerator(42,3);g.getSubBiomeAt=()=>biome;g.getHeightAt=()=>135;g.isGroundSolidForTree=()=>true;let tree;for(let x=0;x<100&&!tree;x++)tree=g.getTreeInCell(x,0);assert.ok(tree);assert.equal(tree.type,biome.treeTypeOverride);const blocks:number[]=[];g.stampTree(tree,(_x:number,y:number,_z:number,type:number)=>{assert.ok(Number.isInteger(y));assert.ok(y>135&&y<160);blocks.push(type);});assert.ok(blocks.length>tree.trunkHeight);assert.ok(blocks.includes(BlockType.CLOUD_CEDAR_LEAVES)||blocks.includes(BlockType.AMBER_PINE_LEAVES));}
+// Real generator uses whole-block mountain heights and deterministic chunks.
+const a=fresh.generateChunk(0,0,new Map()),b=new WorldGenerator(42,3).generateChunk(0,0,new Map());assert.deepEqual(a.voxels,b.voxels);
+console.log('Mountain variants, ridgeline continuity, protected spawn/oceans, v2 transition blending, summit trees and deterministic generation passed.');
+
+const regional=new Map<string,string>();for(let x=-12000;x<12000;x+=160)for(let z=-12000;z<12000;z+=160){for(const temperature of [-.9,.9]){const m=mountainAt(x,z,42,{...params,temperature},4);if(!m)continue;const expected=regional.get(m.rangeId);if(expected)assert.equal(m.variant,expected,'Local temperature cannot change an existing range variant');else regional.set(m.rangeId,m.variant);}}
+assert.ok(regional.size>5);console.log('Mountain ranges retain a single base climate across local snowy/desert climate boundaries.');

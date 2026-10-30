@@ -37,6 +37,7 @@ interface MeshRequest {
   cz: number;
   voxels: Uint16Array;
   waterValues?: Uint8Array;
+  vertical?:{below:Uint16Array;above:Uint16Array};
   maxY: number;
   isSicklyWater: boolean;
   // Neighbor chunk data for seamless borders
@@ -91,6 +92,7 @@ function computeAO(side1: boolean, side2: boolean, corner: boolean): number {
   return 1.0;
 }
 
+let activeVertical:{below:Uint16Array;above:Uint16Array}|undefined;
 function getBlockType(
   x: number, y: number, z: number,
   voxels: Uint16Array,
@@ -99,21 +101,21 @@ function getBlockType(
   neighborNegZ?: Uint16Array,
   neighborPosZ?: Uint16Array
 ): BlockType {
-  if (y < 0 || y >= CHUNK_H) return BlockType.AIR;
+  if(y<0||y>=CHUNK_H){if(x>=0&&x<16&&z>=0&&z<16)return (y===-1?activeVertical?.below:y===160?activeVertical?.above:undefined)?.[x+z*16]??BlockType.AIR;return BlockType.AIR;}
   if (x >= 0 && x < CHUNK_W && z >= 0 && z < CHUNK_D) {
     return voxels[x + z * CHUNK_W + y * (CHUNK_W * CHUNK_D)];
   }
   if (x < 0 && z >= 0 && z < CHUNK_D && neighborNegX) {
-    return neighborNegX[(CHUNK_W - 1) + z * CHUNK_W + y * (CHUNK_W * CHUNK_D)];
+    return neighborNegX.length===CHUNK_W*CHUNK_H ? neighborNegX[z+y*CHUNK_W] : neighborNegX[(CHUNK_W - 1) + z * CHUNK_W + y * (CHUNK_W * CHUNK_D)];
   }
   if (x >= CHUNK_W && z >= 0 && z < CHUNK_D && neighborPosX) {
-    return neighborPosX[0 + z * CHUNK_W + y * (CHUNK_W * CHUNK_D)];
+    return neighborPosX.length===CHUNK_W*CHUNK_H ? neighborPosX[z+y*CHUNK_W] : neighborPosX[0 + z * CHUNK_W + y * (CHUNK_W * CHUNK_D)];
   }
   if (z < 0 && x >= 0 && x < CHUNK_W && neighborNegZ) {
-    return neighborNegZ[x + (CHUNK_D - 1) * CHUNK_W + y * (CHUNK_W * CHUNK_D)];
+    return neighborNegZ.length===CHUNK_W*CHUNK_H ? neighborNegZ[x+y*CHUNK_W] : neighborNegZ[x + (CHUNK_D - 1) * CHUNK_W + y * (CHUNK_W * CHUNK_D)];
   }
   if (z >= CHUNK_D && x >= 0 && x < CHUNK_W && neighborPosZ) {
-    return neighborPosZ[x + 0 * CHUNK_W + y * (CHUNK_W * CHUNK_D)];
+    return neighborPosZ.length===CHUNK_W*CHUNK_H ? neighborPosZ[x+y*CHUNK_W] : neighborPosZ[x + 0 * CHUNK_W + y * (CHUNK_W * CHUNK_D)];
   }
   return BlockType.AIR;
 }
@@ -192,6 +194,7 @@ function getWaterCornerHeight(
 }
 
 function meshChunk(req: MeshRequest): MeshResult {
+  activeVertical=req.vertical;
   const { cx, cz, voxels, maxY, isSicklyWater, neighborNegX, neighborPosX, neighborNegZ, neighborPosZ } = req;
 
   // Reset cursors

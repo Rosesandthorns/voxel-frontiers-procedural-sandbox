@@ -838,6 +838,12 @@ export const SUB_BIOME_REGISTRY: Record<string, VerdantSubBiomeDef> = {
   }
 };
 
+Object.assign(SUB_BIOME_REGISTRY, {
+  SILVER_BIRCH_GROVE: { ...SUB_BIOME_REGISTRY.VERDANT_PLAINS_MEADOW, id:'silver_birch_grove', name:'Silver Birch Grove', description:'Pale trunks and airy canopies above banks of wildflowers.', treeFrequency:0.026, flowerFrequency:0.32, heightVariation:0.45, treeTypeOverride:'birch', accentColor:'#c2cf9a' },
+  HEATHER_HEATH: { ...SUB_BIOME_REGISTRY.VERDANT_PLAINS_MEADOW, id:'heather_heath', name:'Heather Heath', description:'Open rolling heath dotted with squat junipers and flowering scrub.', treeFrequency:0.008, flowerFrequency:0.24, heightVariation:0.7, treeTypeOverride:'juniper', accentColor:'#a998b4' },
+  MOSSWOOD_HOLLOW: { ...SUB_BIOME_REGISTRY.VERDANT_PLAINS_MEADOW, id:'mosswood_hollow', name:'Mosswood Hollow', description:'Sheltered green hollows with willow crowns, ferns, and mushrooms.', treeFrequency:0.035, flowerFrequency:0.42, heightVariation:0.3, baseHeightOffset:-2, treeTypeOverride:'limeleaf', accentColor:'#698e5e' }
+});
+
 // Maintain backwards compatibility alias
 export const VERDANT_SUB_BIOMES = SUB_BIOME_REGISTRY;
 
@@ -850,7 +856,7 @@ export const VERDANT_SUB_BIOMES = SUB_BIOME_REGISTRY;
  * - weirdness: Anomalies (trenches, spires)
  * - vegetation: Flora density
  */
-export function resolveVerdantSubBiome(params: BiomeParameters): VerdantSubBiomeDef {
+export function resolveVerdantSubBiome(params: BiomeParameters, generationVersion = 1): VerdantSubBiomeDef {
   const { continentalness, temperature, flatness, humidity, weirdness, vegetation, coastType = 0 } = params;
 
   // 1. TRENCHES: Rare chasm under deep ocean when weirdness / fissure noise is high
@@ -952,6 +958,12 @@ export function resolveVerdantSubBiome(params: BiomeParameters): VerdantSubBiome
       return SUB_BIOME_REGISTRY.RAINFOREST_BAMBOO_GROVE;
     }
     return SUB_BIOME_REGISTRY.RAINFOREST_CANOPY;
+  }
+
+  if (generationVersion >= 2 && weirdness < 0.45) {
+    if (humidity > 0.2 && flatness < 0.15) return SUB_BIOME_REGISTRY.MOSSWOOD_HOLLOW;
+    if (humidity < -0.08 && flatness > 0.05) return SUB_BIOME_REGISTRY.HEATHER_HEATH;
+    if (temperature > -0.4 && vegetation > 0.02) return SUB_BIOME_REGISTRY.SILVER_BIRCH_GROVE;
   }
 
   // 8. VERDANT PLAINS (INLAND CONTINENT):

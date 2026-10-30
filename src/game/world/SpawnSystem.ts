@@ -29,7 +29,7 @@ export class SpawnSystem {
     // Find actual natural surface height at spawn coordinates (scanning down from sky)
     let naturalFloorY = 0;
     if (chunk) {
-      for (let y = CHUNK_H - 2; y >= Math.max(20, Math.floor(groundY) - 15); y--) {
+      for (let y = chunk.columnTop(lx,lz); y >= Math.max(20, Math.floor(groundY) - 15); y--) {
         const b = chunk.getBlock(lx, y, lz);
         if (b !== BlockType.AIR && !isWaterBlock(b)) {
           const def = BLOCK_DEFS[b];

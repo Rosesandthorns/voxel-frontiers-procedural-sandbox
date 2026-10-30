@@ -59,6 +59,8 @@ export class PlayerPhysics {
     const hw = PlayerPhysics.WIDTH / 2;
     const h = PlayerPhysics.HEIGHT;
 
+    // Freeze at the edge of received terrain rather than falling through a delayed chunk.
+    if(world.isRemote){for(const x of [pos.x-.4,pos.x+.4,pos.x+vel.x*delta])for(const z of [pos.z-.4,pos.z+.4,pos.z+vel.z*delta])if(!world.chunks.has(`${Math.floor(x/16)},${Math.floor(z/16)}`)){vel.set(0,0,0);return {isGrounded};}}
     const dx = vel.x * delta;
     const dy = vel.y * delta;
     const dz = vel.z * delta;
@@ -199,15 +201,13 @@ export class PlayerPhysics {
       pos.y = 1;
       vel.y = 0;
       grounded = true;
-    } else if (pos.y > CHUNK_H + 20) {
-      pos.y = CHUNK_H + 20;
-      vel.y = 0;
+
     }
 
     // Un-stuck safety: If player is trapped inside a solid block, place on top of open ground
     if (this.checkCollision(pos.x, pos.y, pos.z, hw, h, world)) {
       let safeY = Math.ceil(pos.y);
-      while (safeY < CHUNK_H && this.checkCollision(pos.x, safeY, pos.z, hw, h, world)) {
+      while (safeY < pos.y+1024 && this.checkCollision(pos.x, safeY, pos.z, hw, h, world)) {
         safeY++;
       }
       pos.y = safeY;

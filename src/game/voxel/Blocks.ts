@@ -1,6 +1,18 @@
+import {CHALK_COLORS,CHALK_RGB} from '../systems/Workshop';
 import { BlockDef, BlockType } from '../../types';
 
 export const BLOCK_DEFS: Record<BlockType, BlockDef> = {
+  [BlockType.CAULDRON]:{id:BlockType.CAULDRON,name:'Cauldron',solid:true,transparent:false,hardness:2,color:'#5c6563',soundType:'rocky',renderType:'cube'},
+  [BlockType.DRYING_RACK]:{id:BlockType.DRYING_RACK,name:'Drying Rack',solid:false,transparent:true,hardness:.8,color:'#98784b',soundType:'wood',renderType:'cross'},
+  [BlockType.TORCH]:{id:BlockType.TORCH,name:'Torch',solid:false,transparent:true,hardness:.1,color:'#e8ac49',soundType:'wood',renderType:'cross'},
+  [BlockType.BIRCH_LOG]:{id:BlockType.BIRCH_LOG,name:'Birch Log',solid:true,transparent:false,hardness:1.4,color:'#e5dfcb',soundType:'wood',renderType:'cube'},
+  [BlockType.BIRCH_LEAVES]:{id:BlockType.BIRCH_LEAVES,name:'Birch Leaves',solid:true,transparent:true,hardness:.2,color:'#80a750',soundType:'organic',renderType:'cube'},
+  [BlockType.JUNIPER_LOG]:{id:BlockType.JUNIPER_LOG,name:'Juniper Log',solid:true,transparent:false,hardness:1.4,color:'#8d765b',soundType:'wood',renderType:'cube'},
+  [BlockType.JUNIPER_LEAVES]:{id:BlockType.JUNIPER_LEAVES,name:'Juniper Needles',solid:true,transparent:true,hardness:.2,color:'#668477',soundType:'organic',renderType:'cube'},
+  [BlockType.CLOUD_CEDAR_LOG]:{id:BlockType.CLOUD_CEDAR_LOG,name:'Cloud Cedar Log',solid:true,transparent:false,hardness:1.4,color:'#b2b6a5',soundType:'wood',renderType:'cube'},
+  [BlockType.CLOUD_CEDAR_LEAVES]:{id:BlockType.CLOUD_CEDAR_LEAVES,name:'Cloud Cedar Needles',solid:true,transparent:true,hardness:0.2,color:'#658d83',soundType:'organic',renderType:'cube'},
+  [BlockType.AMBER_PINE_LOG]:{id:BlockType.AMBER_PINE_LOG,name:'Amber Pine Log',solid:true,transparent:false,hardness:1.4,color:'#9c603c',soundType:'wood',renderType:'cube'},
+  [BlockType.AMBER_PINE_LEAVES]:{id:BlockType.AMBER_PINE_LEAVES,name:'Amber Pine Needles',solid:true,transparent:true,hardness:0.2,color:'#b1a457',soundType:'organic',renderType:'cube'},
   [BlockType.AIR]: {
     id: BlockType.AIR,
     name: 'Air',
@@ -433,7 +445,7 @@ export const BLOCK_DEFS: Record<BlockType, BlockDef> = {
   },
   [BlockType.LIMELEAF_LOG]: {
     id: BlockType.LIMELEAF_LOG,
-    name: 'Limeleaf Log',
+    name: 'Willow Log',
     solid: true,
     transparent: false,
     hardness: 1.4,
@@ -443,7 +455,7 @@ export const BLOCK_DEFS: Record<BlockType, BlockDef> = {
   },
   [BlockType.LIMELEAF_LEAVES]: {
     id: BlockType.LIMELEAF_LEAVES,
-    name: 'Limeleaf Leaves',
+    name: 'Willow Leaves',
     solid: true,
     transparent: true,
     hardness: 0.2,
@@ -1431,6 +1443,7 @@ export function isShrubBlock(type: BlockType): boolean {
 }
 
 export function isPlankBlock(type: BlockType): boolean {
+  if(type>=740&&type<744)return true;
   return (
     type === BlockType.REDWOOD_PLANK ||
     type === BlockType.WILLOW_PLANK ||
@@ -1479,7 +1492,10 @@ export function isStoneOrOre(type: BlockType): boolean {
   );
 }
 
+for(let i=0;i<CHALK_COLORS.length;i++){const id=(600+i) as BlockType;BLOCK_DEFS[id]={id,name:CHALK_COLORS[i]+' chalk marking',solid:false,transparent:true,hardness:.05,color:CHALK_RGB[i],soundType:'rocky',renderType:'flat'};}
+for(let i=650;i<=655;i++){const id=i as BlockType;BLOCK_DEFS[id]={...BLOCK_DEFS[BlockType.CAULDRON],id};}
 export function isLogBlock(type: BlockType): boolean {
+  if(type===BlockType.BIRCH_LOG||type===BlockType.JUNIPER_LOG||type===BlockType.CLOUD_CEDAR_LOG||type===BlockType.AMBER_PINE_LOG)return true;
   return (
     type === BlockType.OAK_WOOD ||
     type === BlockType.REDWOOD_LOG ||
@@ -1497,6 +1513,7 @@ export function isLogBlock(type: BlockType): boolean {
 }
 
 export function isLeavesBlock(type: BlockType): boolean {
+  if(type===BlockType.BIRCH_LEAVES||type===BlockType.JUNIPER_LEAVES||type===BlockType.CLOUD_CEDAR_LEAVES||type===BlockType.AMBER_PINE_LEAVES)return true;
   return (
     type === BlockType.OAK_LEAVES ||
     type === BlockType.REDWOOD_LEAVES ||
@@ -1514,6 +1531,7 @@ export function isLeavesBlock(type: BlockType): boolean {
 }
 
 export function isPlantBlock(type: BlockType): boolean {
+  if(type>=600&&type<612)return true;
   if (type >= 201 && type <= 450) return true;
   switch (type) {
     case BlockType.JADELEAF_FERN:
@@ -1546,6 +1564,7 @@ export function isPlantBlock(type: BlockType): boolean {
     // Desert cacti flora
     case BlockType.BARREL_CACTUS:
     case BlockType.PRICKLY_PEAR:
+    case BlockType.TORCH:
     case BlockType.FLOWERING_TORCH_CACTUS:
     // Arctic flora & features
     case BlockType.SNOWDROP:
@@ -1776,3 +1795,7 @@ export function isThermalWorkstation(type: BlockType): boolean {
 
 
 
+
+for(let i=700;i<716;i++)BLOCK_DEFS[i as BlockType]={...BLOCK_DEFS[BlockType.CHEST],id:i as BlockType,name:['Redwood','Willow','Oak','Everfrost','Palm','Ghost','Rainforest Oak','Kapok','Banyan','Strangler','Mahogany','Ceiba','Birch','Juniper','Cloud Cedar','Amber Pine'][i-700]+' Chest',color:['#a4694e','#a4a568','#b28e59','#778e96','#c1a477','#aba999','#75805a','#aa8963','#9f8b61','#8c7762','#98624e','#b19168','#d2c199','#9b8569','#b9bfaf','#b58b54'][i-700]};
+
+for(let i=740;i<744;i++)BLOCK_DEFS[i as BlockType]={...BLOCK_DEFS[BlockType.OAK_PLANK],id:i as BlockType,name:['Birch','Juniper','Cloud Cedar','Amber Pine'][i-740]+' Plank',color:['#d2c199','#9b8569','#b9bfaf','#b58b54'][i-740]};

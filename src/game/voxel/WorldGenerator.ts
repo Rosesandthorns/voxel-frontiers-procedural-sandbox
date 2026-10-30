@@ -1,3 +1,5 @@
+import {StructurePlanner} from './Structures';
+import {mountainAt} from './Mountains';
 import { BiomeType, BlockType } from '../../types';
 import { isLeavesBlock, isLogBlock, isPlantBlock, isWaterBlock } from './Blocks';
 import { Chunk } from './Chunk';
@@ -18,8 +20,13 @@ function hash2(x: number, z: number, seed: number): number {
 }
 
 export class WorldGenerator {
+  public structures:StructurePlanner;
   public surfaceCaveSystem: SurfaceCaveSystem;
   public riverSystem: RiverSystem;
+  private legacyGenerator: WorldGenerator | null = null;
+  private legacyKeys = new Set<string>();
+  private previousGenerators=new Map<number,WorldGenerator>();
+  private transitionCache=new Map<string,{generator:WorldGenerator;weight:number}|null>();
   private noiseContinental: FastNoise;
   private noiseTemperature: FastNoise;
   private noiseFlatness: FastNoise;
@@ -35,7 +42,11 @@ export class WorldGenerator {
   private noiseCaveB: FastNoise;
   private noiseCaveRoom: FastNoise;
 
-  constructor(public seed: number = 1337) {
+  constructor(public seed: number = 1337, public generationVersion = 1, private legacyChunks: string[] = [], private previousChunks:Record<string,number> = {}) {
+    this.structures=new StructurePlanner(this,previousChunks);
+    this.legacyKeys = new Set(legacyChunks);
+    for(const version of new Set(Object.values(previousChunks)))if(version<generationVersion)this.previousGenerators.set(version,new WorldGenerator(seed,version));
+    if (generationVersion >= 2 && legacyChunks.length) this.legacyGenerator = new WorldGenerator(seed, 1);
     this.noiseContinental = new FastNoise(seed + 99);
     this.noiseTemperature = new FastNoise(seed + 155);
     this.noiseFlatness = new FastNoise(seed + 101);
@@ -107,6 +118,8 @@ export class WorldGenerator {
    * - flatness, humidity, weirdness, vegetation: regional parameters.
    * - coastType: macro-scale coastal provinces (~1200 blocks) separating rocky cliffs from sandy shores.
    */
+  private mountainClimateCache=new Map<string,BiomeParameters>();
+  private mountainClimateAt=(x:number,z:number)=>{const key=`${x},${z}`;let value=this.mountainClimateCache.get(key);if(!value){value=this.getBiomeParameters(x,z);if(this.mountainClimateCache.size>2048)this.mountainClimateCache.clear();this.mountainClimateCache.set(key,value);}return value;};
   public getBiomeParameters(worldX: number, worldZ: number): BiomeParameters {
     // 1. Continentalness (~2125 blocks wavelength — 150% larger biomes)
     const contScale = 0.00115 / 2.5;
@@ -152,7 +165,7 @@ export class WorldGenerator {
    */
   public isInCave(worldX: number, worldY: number, worldZ: number, surfaceY?: number): boolean {
     const params = this.getBiomeParameters(worldX, worldZ);
-    const surfY = surfaceY ?? this.getHeightAt(worldX, worldZ, resolveVerdantSubBiome(params));
+    const surfY = surfaceY ?? this.getHeightAt(worldX, worldZ, resolveVerdantSubBiome(params, this.generationVersion));
 
     // If clearly above the terrain surface, definitely not in a cave
     if (worldY >= surfY + 1.5) return false;
@@ -220,7 +233,13 @@ export class WorldGenerator {
 
   public getSubBiomeAt(worldX: number, worldZ: number, worldY?: number): VerdantSubBiomeDef {
     const params = this.getBiomeParameters(worldX, worldZ);
-    const surfaceSubBiome = resolveVerdantSubBiome(params) || SUB_BIOME_REGISTRY.VERDANT_PLAINS_MEADOW;
+    const previous=this.previousGenerators.get(this.previousChunks[`${Math.floor(worldX/16)},${Math.floor(worldZ/16)}`]);
+    if(previous)return previous.getSubBiomeAt(worldX,worldZ,worldY);
+    if (this.legacyKeys.has(`${Math.floor(worldX/16)},${Math.floor(worldZ/16)}`)) return this.legacyGenerator!.getSubBiomeAt(worldX,worldZ,worldY);
+    const transition=this.previousAt(worldX,worldZ);
+    if(transition&&hash2(worldX,worldZ,this.seed+4119)>transition.weight)return transition.generator.getSubBiomeAt(worldX,worldZ,worldY);
+    const mountain=this.generationVersion>=3?mountainAt(worldX,worldZ,this.seed,params,this.generationVersion,this.mountainClimateAt):null;
+    const surfaceSubBiome = mountain&&mountain.strength>.22?mountain.biome:resolveVerdantSubBiome(params, this.generationVersion) || SUB_BIOME_REGISTRY.VERDANT_PLAINS_MEADOW;
     const isArcticClimate = Boolean(surfaceSubBiome?.isArctic || surfaceSubBiome?.category === 'arctic' || surfaceSubBiome?.surfaceBlock === BlockType.SNOW);
 
     // 1. Check River & Rivermouth
@@ -312,9 +331,43 @@ export class WorldGenerator {
    * Computes the surface/seabed terrain height for given world coordinates.
    * World sea level is at Y 100.
    */
+  private previousAt(x:number,z:number){
+    if(!this.previousGenerators.size)return null;
+    const key=`${x},${z}`;if(this.transitionCache.has(key))return this.transitionCache.get(key)!;
+    let distance=64,generator:WorldGenerator|undefined;const cx=Math.floor(x/16),cz=Math.floor(z/16);
+    for(let dx=-4;dx<=4;dx++)for(let dz=-4;dz<=4;dz++){
+      const previous=this.previousGenerators.get(this.previousChunks[`${cx+dx},${cz+dz}`]);if(!previous)continue;
+      const left=(cx+dx)*16,top=(cz+dz)*16,d=Math.hypot(Math.max(left-x,0,x-left-15),Math.max(top-z,0,z-top-15));
+      if(d<distance){distance=d;generator=previous;}
+    }
+    const t=distance/64,result=generator?{generator,weight:t*t*(3-2*t)}:null;
+    if(this.transitionCache.size>8192)this.transitionCache.clear();this.transitionCache.set(key,result);return result;
+  }
   public getHeightAt(worldX: number, worldZ: number, subBiome: VerdantSubBiomeDef): number {
+    const current = this.getUnblendedHeightAt(worldX,worldZ,subBiome);
+    const transition=this.previousAt(worldX,worldZ);
+    if(transition){const old=transition.generator.getHeightAt(worldX,worldZ,transition.generator.getSubBiomeAt(worldX,worldZ));return Math.round(old+(current-old)*transition.weight);}
+    if (!this.legacyGenerator) return current;
+    const cx=Math.floor(worldX/16), cz=Math.floor(worldZ/16);
+    let distance=32;
+    for(let dx=-2;dx<=2;dx++) for(let dz=-2;dz<=2;dz++) {
+      if (!this.legacyKeys.has(`${cx+dx},${cz+dz}`)) continue;
+      const left=(cx+dx)*16, top=(cz+dz)*16;
+      const ax=Math.max(left-worldX,0,worldX-(left+15));
+      const az=Math.max(top-worldZ,0,worldZ-(top+15));
+      distance=Math.min(distance,Math.hypot(ax,az));
+    }
+    if(distance>=32) return current;
+    const oldBiome=this.legacyGenerator.getSubBiomeAt(worldX,worldZ);
+    const oldHeight=this.legacyGenerator.getHeightAt(worldX,worldZ,oldBiome);
+    const t=distance/32, weight=t*t*(3-2*t);
+    return Math.round(oldHeight+(current-oldHeight)*weight);
+  }
+
+  private getUnblendedHeightAt(worldX: number, worldZ: number, subBiome: VerdantSubBiomeDef): number {
     const river = this.riverSystem.getRiverSample(worldX, worldZ);
-    const naturalH = this.getNaturalTerrainHeight(worldX, worldZ, subBiome);
+    let naturalH = this.getNaturalTerrainHeight(worldX, worldZ, subBiome);
+    if(this.generationVersion>=3){const m=mountainAt(worldX,worldZ,this.seed,this.getBiomeParameters(worldX,worldZ),this.generationVersion,this.mountainClimateAt);if(m)naturalH=Math.round((this.generationVersion>=4?naturalH+m.lift:Math.min(CHUNK_H-14,naturalH+m.lift)));}
 
     if (river.inRiver) {
       // River channel: water surface is at Y100 (SEA_LEVEL), riverbed carved beneath (Y96 - Y98)
@@ -570,7 +623,7 @@ export class WorldGenerator {
    */
   private resolveSubBiomeForBlend(wx: number, wz: number): VerdantSubBiomeDef {
     const params = this.getBiomeParameters(wx, wz);
-    return resolveVerdantSubBiome(params) || SUB_BIOME_REGISTRY.VERDANT_PLAINS_MEADOW;
+    return resolveVerdantSubBiome(params, this.generationVersion) || SUB_BIOME_REGISTRY.VERDANT_PLAINS_MEADOW;
   }
 
   /**
@@ -579,7 +632,7 @@ export class WorldGenerator {
    * sinkholes, hollow subterranean caverns, or floating over air/water.
    */
   public isGroundSolidForTree(treeWX: number, groundY: number, treeWZ: number): boolean {
-    if (groundY <= SEA_LEVEL || groundY >= CHUNK_H - 24) return false;
+    if (groundY <= SEA_LEVEL || (this.generationVersion<4 && groundY >= CHUNK_H - 24)) return false;
 
     // Check if within or directly over any surface cave mouth or shallow entrance tunnel
     if (this.surfaceCaveSystem.isInsideEntranceMouth(treeWX, treeWZ, groundY)) {
@@ -621,7 +674,7 @@ export class WorldGenerator {
     wx: number;
     wz: number;
     groundY: number;
-    type: 'redwood' | 'limeleaf' | 'oak' | 'ghost' | 'palm' | 'everfrost' | 'rainforest_oak' | 'kapok' | 'banyan' | 'strangler' | 'mahogany' | 'ceiba';
+    type: 'cloud_cedar' | 'amber_pine' | 'birch' | 'juniper' | 'redwood' | 'limeleaf' | 'oak' | 'ghost' | 'palm' | 'everfrost' | 'rainforest_oak' | 'kapok' | 'banyan' | 'strangler' | 'mahogany' | 'ceiba';
     trunkHeight: number;
   } | null {
     const rx = Math.floor(hash2(cellX, cellZ, 101) * 6);
@@ -642,9 +695,16 @@ export class WorldGenerator {
 
     const params = this.getBiomeParameters(treeWX, treeWZ);
 
-    let type: 'redwood' | 'limeleaf' | 'oak' | 'ghost' | 'palm' | 'everfrost' | 'rainforest_oak' | 'kapok' | 'banyan' | 'strangler' | 'mahogany' | 'ceiba' = 'oak';
+    let type: 'cloud_cedar' | 'amber_pine' | 'birch' | 'juniper' | 'redwood' | 'limeleaf' | 'oak' | 'ghost' | 'palm' | 'everfrost' | 'rainforest_oak' | 'kapok' | 'banyan' | 'strangler' | 'mahogany' | 'ceiba' = 'oak';
     let trunkHeight = 6;
 
+    if(subBiome.treeTypeOverride==='cloud_cedar'||subBiome.treeTypeOverride==='amber_pine')return {wx:treeWX,wz:treeWZ,groundY,type:subBiome.treeTypeOverride,trunkHeight:4+Math.floor(hash2(cellX,cellZ,505)*3)};
+    if (subBiome.treeTypeOverride === 'birch' || subBiome.treeTypeOverride === 'juniper') {
+      type=subBiome.treeTypeOverride;
+      trunkHeight=type==='birch' ? 7+Math.floor(hash2(cellX,cellZ,505)*4) : 3+Math.floor(hash2(cellX,cellZ,505)*3);
+      return {wx:treeWX,wz:treeWZ,groundY,type,trunkHeight};
+    }
+    if (subBiome.treeTypeOverride === 'limeleaf') return {wx:treeWX,wz:treeWZ,groundY,type:'limeleaf',trunkHeight:6+Math.floor(hash2(cellX,cellZ,505)*4)};
     // Rainforest trees
     if (subBiome.isRainforest) {
       let rfType: 'rainforest_oak' | 'kapok' | 'banyan' | 'strangler' | 'mahogany' | 'ceiba' = 'rainforest_oak';
@@ -730,12 +790,31 @@ export class WorldGenerator {
   }
 
   private stampTree(
-    tree: { wx: number; wz: number; groundY: number; type: 'redwood' | 'limeleaf' | 'oak' | 'ghost' | 'palm' | 'everfrost' | 'rainforest_oak' | 'kapok' | 'banyan' | 'strangler' | 'mahogany' | 'ceiba'; trunkHeight: number },
+    tree: { wx: number; wz: number; groundY: number; type: 'cloud_cedar' | 'amber_pine' | 'birch' | 'juniper' | 'redwood' | 'limeleaf' | 'oak' | 'ghost' | 'palm' | 'everfrost' | 'rainforest_oak' | 'kapok' | 'banyan' | 'strangler' | 'mahogany' | 'ceiba'; trunkHeight: number },
     setVoxel: (wx: number, wy: number, wz: number, block: BlockType) => void
   ) {
     const { wx, wz, groundY, type, trunkHeight } = tree;
 
-    if (type === 'redwood') {
+    if(type==='cloud_cedar'||type==='amber_pine'){
+      const log=type==='cloud_cedar'?BlockType.CLOUD_CEDAR_LOG:BlockType.AMBER_PINE_LOG,leaves=type==='cloud_cedar'?BlockType.CLOUD_CEDAR_LEAVES:BlockType.AMBER_PINE_LEAVES;
+      for(let y=1;y<=trunkHeight;y++)setVoxel(wx,groundY+y,wz,log);
+      for(let tier=0;tier<3;tier++){
+        const y=Math.max(groundY+2,groundY+trunkHeight-tier*2),r=type==='cloud_cedar'?3-tier:1+tier;
+        for(let dx=-r;dx<=r;dx++)for(let dz=-r;dz<=r;dz++)if(dx*dx+dz*dz<=r*r+1&&!(dx===0&&dz===0))setVoxel(wx+dx,y,wz+dz,leaves);
+      }
+      setVoxel(wx,groundY+trunkHeight+1,wz,leaves);
+    } else if (type === 'birch' || type === 'juniper') {
+      const log=this.generationVersion>=4?(type==='birch'?BlockType.BIRCH_LOG:BlockType.JUNIPER_LOG):(type==='birch'?BlockType.GHOST_LOG:BlockType.REDWOOD_LOG);
+      const leaves=this.generationVersion>=4?(type==='birch'?BlockType.BIRCH_LEAVES:BlockType.JUNIPER_LEAVES):(type==='birch'?BlockType.OAK_LEAVES:BlockType.LIMELEAF_LEAVES);
+      for(let y=groundY+1;y<=groundY+trunkHeight;y++) setVoxel(wx,y,wz,log);
+      for(let dy=-2;dy<=2;dy++) {
+        const radius=type==='birch' ? (Math.abs(dy)===2?1:2) : Math.max(1,3-Math.max(0,dy+1));
+        for(let dx=-radius;dx<=radius;dx++) for(let dz=-radius;dz<=radius;dz++) {
+          if (dx*dx+dz*dz>radius*radius+1 || (dx===0&&dz===0&&dy<=0)) continue;
+          setVoxel(wx+dx,groundY+trunkHeight+dy,wz+dz,leaves);
+        }
+      }
+    } else if (type === 'redwood') {
       // Redwood Log Trunk
       for (let y = groundY + 1; y <= groundY + trunkHeight; y++) {
         setVoxel(wx, y, wz, BlockType.REDWOOD_LOG);
@@ -1169,6 +1248,16 @@ export class WorldGenerator {
       return BlockType.AIR;
     }
 
+    if (this.generationVersion >= 2 && ['silver_birch_grove','heather_heath','mosswood_hollow'].includes(subBiome.id)) {
+      const patch=this.noiseFlora.fbm2D(wx*0.06,wz*0.06,2,2,0.5);
+      const roll=hash2(wx,wz,this.seed+311);
+      if (roll < subBiome.flowerFrequency*(patch>0?1.2:0.45)) {
+        if(subBiome.id==='mosswood_hollow') return roll<0.07?BlockType.JUNGLE_MUSHROOM:BlockType.JADELEAF_FERN;
+        if(subBiome.id==='heather_heath') return roll<0.07?BlockType.THORN_BUSH:BlockType.BELL_LILY;
+        return roll<0.08?BlockType.ROSEBUSH:(roll<0.16?BlockType.ORO_FLOWER:BlockType.BELL_LILY);
+      }
+      return BlockType.AIR;
+    }
     // 0. Wild Crop Variant Generation
     const params = this.getBiomeParameters(wx, wz);
     const surfaceBlock = subBiome.surfaceBlock || BlockType.GRASS;
@@ -1414,7 +1503,7 @@ export class WorldGenerator {
    * Ensures 100% boundary consistency across loaded/unloaded chunks.
    */
   public getProceduralBlock(wx: number, wy: number, wz: number): BlockType {
-    if (wy < 0 || wy >= CHUNK_H) return BlockType.AIR;
+    if (wy < 0 || (this.generationVersion<4 && wy >= CHUNK_H)) return BlockType.AIR;
     if (wy === 0) return BlockType.OBSIDIAN;
 
     const subBiome = this.getSubBiomeAt(wx, wz);
@@ -1727,6 +1816,11 @@ export class WorldGenerator {
       centerSubBiome.id
     );
     chunk.isSicklyWater = !!centerSubBiome.isSicklyWater;
+    let denseHeight=160;
+    if(this.generationVersion>=4)for(let z=0;z<16;z++)for(let x=0;x<16;x++){const wx=chunkOriginX+x,wz=chunkOriginZ+z;denseHeight=Math.max(denseHeight,Math.ceil((this.getHeightAt(wx,wz,this.getSubBiomeAt(wx,wz))+48)/16)*16);}
+    if(this.generationVersion>=5)for(const p of this.structures.near(cx,cz))denseHeight=Math.max(denseHeight,Math.ceil((p.y+32)/16)*16);
+    const CHUNK_H=denseHeight;
+    if(denseHeight!==160){chunk.voxels=new Uint16Array(denseHeight*256);chunk.waterValues=new Uint8Array(denseHeight*256);}
     const voxels = chunk.voxels;
 
     let maxChunkY = SEA_LEVEL;
@@ -1759,7 +1853,7 @@ export class WorldGenerator {
         voxels[colIdx] = BlockType.OBSIDIAN;
 
         // Fill underground & surface layers
-        const isArcticZone = Boolean(subBiome.isArctic || subBiome.category === 'arctic' || subBiome.surfaceBlock === BlockType.SNOW || subBiome.isEversnow);
+        const isArcticZone = Boolean((this.generationVersion>=4&&surfaceY>275&&!subBiome.isDesert)||subBiome.isArctic || subBiome.category === 'arctic' || subBiome.surfaceBlock === BlockType.SNOW || subBiome.isEversnow);
 
         // Store in per-column cache for reuse in the flora pass below
         const colCacheIdx = lx + lz * CHUNK_W;
@@ -1785,7 +1879,8 @@ export class WorldGenerator {
           const voxelIdx = colIdx + y * (CHUNK_W * CHUNK_D);
 
           if (y === surfaceY) {
-            let placedSurface = false;
+            let placedSurface = this.generationVersion>=4&&surfaceY>275&&!subBiome.isDesert;
+            if(placedSurface)voxels[voxelIdx]=BlockType.SNOW;
             // Ice puddles in sub-biomes with hasIcePuddles
             const waterLevel = SEA_LEVEL;
             if (subBiome.hasIcePuddles && surfaceY > waterLevel) {
@@ -2600,6 +2695,8 @@ export class WorldGenerator {
 
     chunk.maxY = maxChunkY;
 
+    if(this.generationVersion>=5)this.structures.stamp(chunk);
+
     // Apply any user-modified blocks in this chunk region
     if (modifiedBlocks.size > 0) {
       const minWX = cx * CHUNK_W;
@@ -2612,7 +2709,7 @@ export class WorldGenerator {
         const wx = Number(parts[0]);
         const wy = Number(parts[1]);
         const wz = Number(parts[2]);
-        if (wx >= minWX && wx < maxWX && wz >= minWZ && wz < maxWZ && wy >= 0 && wy < CHUNK_H) {
+        if (wx >= minWX && wx < maxWX && wz >= minWZ && wz < maxWZ && Number.isSafeInteger(wy) && wy >= 0) {
           const current = chunk.getBlock(wx - minWX, wy, wz - minWZ);
           if (isPlantBlock(blockType) && isLogBlock(current)) {
             // Plants should never replace logs

@@ -1,3 +1,8 @@
+import {pixelItemIcon} from './PixelItemIcons';
+import {CREATURE_FOOD} from '../entities/BetaCreatures';
+import {toolLifetime} from './ToolDurability';
+import {isCauldron,WORKSHOP_ITEMS} from './Workshop';
+import {ROT_ITEM,ageFood,preserveFood,canStackItems} from './FoodFreshness';
 import { BlockType, InventorySlot, ItemDef } from '../../types';
 import { BLOCK_DEFS, isFlintBlock, isDoorBlock, getDoorItemKey } from '../voxel/Blocks';
 import { getBlockSideTexture } from '../voxel/TextureAtlas';
@@ -53,10 +58,10 @@ export const PLANK_ITEM_IDS = [
   'banyan_plank',
   'strangler_plank',
   'mahogany_plank',
-  'ceiba_plank'
+  'ceiba_plank','birch_plank','juniper_plank','cloud_cedar_plank','amber_pine_plank'
 ];
 
-export const LOG_ITEM_IDS = [
+export const LOG_ITEM_IDS = ['birch_log','juniper_log','cloud_cedar_log','amber_pine_log',
   'redwood_log',
   'willow_log',
   'oak_wood',
@@ -126,6 +131,18 @@ export function isFlintTypeItem(item: ItemDef | null | undefined): boolean {
 // Core Item Registry: All Blocks, Planks, Stations, and Tools
 // -------------------------------------------------------------
 export const ITEM_REGISTRY: Record<string, ItemDef> = {
+ ...CREATURE_FOOD,
+  ...WORKSHOP_ITEMS,
+  rot:ROT_ITEM,
+  torch:{id:'torch',name:'Torch',type:'block',blockId:BlockType.TORCH,icon:getBlockSideTexture(BlockType.TORCH),description:'Lights dark spaces. Place on a solid block.',maxStack:64},
+  birch_log:{id:'birch_log',name:'Birch Log',type:'block',blockId:BlockType.BIRCH_LOG,icon:getBlockSideTexture(BlockType.BIRCH_LOG),description:'Pale birch timber.',maxStack:64},
+  birch_leaves:{id:'birch_leaves',name:'Birch Leaves',type:'block',blockId:BlockType.BIRCH_LEAVES,icon:getBlockSideTexture(BlockType.BIRCH_LEAVES),description:'Leaves of the silver birch.',maxStack:64},
+  juniper_log:{id:'juniper_log',name:'Juniper Log',type:'block',blockId:BlockType.JUNIPER_LOG,icon:getBlockSideTexture(BlockType.JUNIPER_LOG),description:'Hardy upland juniper timber.',maxStack:64},
+  juniper_leaves:{id:'juniper_leaves',name:'Juniper Needles',type:'block',blockId:BlockType.JUNIPER_LEAVES,icon:getBlockSideTexture(BlockType.JUNIPER_LEAVES),description:'Needles of the juniper.',maxStack:64},
+  cloud_cedar_log:{id:'cloud_cedar_log',name:'Cloud Cedar Log',type:'block',blockId:BlockType.CLOUD_CEDAR_LOG,icon:getBlockSideTexture(BlockType.CLOUD_CEDAR_LOG),description:'Found in rare mountain summit groves.',maxStack:64},
+  amber_pine_log:{id:'amber_pine_log',name:'Amber Pine Log',type:'block',blockId:BlockType.AMBER_PINE_LOG,icon:getBlockSideTexture(BlockType.AMBER_PINE_LOG),description:'Found in rare mountain summit groves.',maxStack:64},
+  cloud_cedar_leaves:{id:'cloud_cedar_leaves',name:'Cloud Cedar Needles',type:'block',blockId:BlockType.CLOUD_CEDAR_LEAVES,icon:getBlockSideTexture(BlockType.CLOUD_CEDAR_LEAVES),description:'Found in rare mountain summit groves.',maxStack:64},
+  amber_pine_leaves:{id:'amber_pine_leaves',name:'Amber Pine Needles',type:'block',blockId:BlockType.AMBER_PINE_LEAVES,icon:getBlockSideTexture(BlockType.AMBER_PINE_LEAVES),description:'Found in rare mountain summit groves.',maxStack:64},
   // --- Starter Natural Blocks ---
   grass: {
     id: 'grass',
@@ -365,7 +382,7 @@ export const ITEM_REGISTRY: Record<string, ItemDef> = {
     id: 'chalk',
     name: 'Chalk',
     type: 'utility',
-    blockId: BlockType.CHALK,
+    blockId: BlockType.CHALK_MARK,
     icon: '/ItemSprites/Chalk.png',
     description: 'Soft, powdery white sedimentary mineral extracted from underground chalk veins.',
     maxStack: 64
@@ -1485,7 +1502,13 @@ export const ITEM_REGISTRY: Record<string, ItemDef> = {
     maxStack: 16
   }
 };
+
+for(const [i,wood]of ['birch','juniper','cloud_cedar','amber_pine'].entries())ITEM_REGISTRY[wood+'_plank']={id:wood+'_plank',name:wood.replaceAll('_',' ')+' Plank',type:'block',blockId:(740+i) as BlockType,icon:'',description:'Planks cut from '+wood.replaceAll('_',' ')+'.',maxStack:64};
+for(const [i,plank]of PLANK_ITEM_IDS.entries()){const wood=plank.replace('_plank','');ITEM_REGISTRY[wood+'_chest']={id:wood+'_chest',name:wood.replaceAll('_',' ')+' Chest',type:'block',blockId:(700+i) as BlockType,icon:'',description:'Stores 27 stacks. Crafted from four matching planks.',maxStack:64};}
+ITEM_REGISTRY.wooden_boat={id:'wooden_boat',name:'Wooden Boat',type:'utility',icon:'',description:'Place on water. Right-click to board; Shift to dismount. W/S paddle and A/D steer.',maxStack:1};
+for(const item of Object.values(ITEM_REGISTRY))if(item.type==='tool'||item.type==='weapon'){item.maxDurability=toolLifetime(item);item.durability=item.maxDurability;item.maxStack=1;}
 Object.assign(ITEM_REGISTRY, CROP_ITEMS_MAP);
+for(const item of Object.values(ITEM_REGISTRY))if(Object.hasOwn(WORKSHOP_ITEMS,item.id)||item.id==='wooden_boat'||(!item.icon&&item.blockId===undefined))item.icon=pixelItemIcon(item);
 
 /**
  * Returns the active icon for an item.
@@ -1533,13 +1556,14 @@ export function getItemIcon(item: ItemDef | null | undefined): string {
     if (sideTex) return sideTex;
   }
 
-  return item.icon && isImageStr(item.icon) ? item.icon : '';
+  return item.icon && isImageStr(item.icon) ? item.icon : pixelItemIcon(item);
 }
 
 /**
  * Helper to get or dynamically construct an ItemDef for any BlockType in the world.
  */
 export function getItemForBlock(block: BlockType): ItemDef {
+  if(isCauldron(block))return ITEM_REGISTRY['cauldron'];
   if (isFlintBlock(block)) {
     return ITEM_REGISTRY['flint'] || ITEM_REGISTRY['black_rock'];
   }
@@ -1588,6 +1612,13 @@ export function getItemForBlock(block: BlockType): ItemDef {
 
 // 1. Inventory Crafter Recipes (1 Log = 1 Plank, 4 Planks = Tool Crafter)
 export const INVENTORY_CRAFTING_RECIPES: CraftingRecipe[] = [
+ ...PLANK_ITEM_IDS.map(plank=>({id:'craft_'+plank+'_chest',result:ITEM_REGISTRY[plank.replace('_plank','')+'_chest'],resultCount:1,ingredients:[{itemId:plank,count:4}],station:'inventory' as const,category:'blocks'})),
+ {id:'craft_wooden_boat',result:ITEM_REGISTRY.wooden_boat,resultCount:1,ingredients:[{itemId:'any_plank',count:5}],station:'inventory',category:'blocks'},
+  {id:'craft_cauldron',result:ITEM_REGISTRY['cauldron'],resultCount:1,ingredients:[{itemId:'cobblestone',count:4},{itemId:'iron',count:1}],station:'inventory',category:'blocks'},
+  {id:'craft_drying_rack',result:ITEM_REGISTRY['drying_rack'],resultCount:1,ingredients:[{itemId:'any_plank',count:4}],station:'inventory',category:'blocks'},
+  {id:'craft_chalk_block',result:ITEM_REGISTRY['chalk_block'],resultCount:1,ingredients:[{itemId:'chalk',count:1},{itemId:'flint',count:1}],station:'inventory',category:'blocks'},
+  {id:'craft_torches',result:ITEM_REGISTRY['torch'],resultCount:4,ingredients:[{itemId:'any_plank',count:1},{itemId:'charcoal',count:1}],station:'inventory',category:'blocks'},
+  ...['birch_log','juniper_log','cloud_cedar_log','amber_pine_log'].map(id=>({id:'craft_'+id+'_planks',result:ITEM_REGISTRY[id.replace('_log','_plank')],resultCount:1,ingredients:[{itemId:id,count:1}],station:'inventory' as const,category:'planks'})),
   ...CROP_FARMING_RECIPES,
   // Planks from individual logs (1 log = 1 plank)
   {
@@ -1843,14 +1874,6 @@ export const INVENTORY_CRAFTING_RECIPES: CraftingRecipe[] = [
     result: ITEM_REGISTRY['ceiba_door'],
     resultCount: 1,
     ingredients: [{ itemId: 'ceiba_plank', count: 6 }],
-    station: 'inventory',
-    category: 'doors'
-  },
-  {
-    id: 'craft_any_wooden_door',
-    result: ITEM_REGISTRY['oak_door'],
-    resultCount: 1,
-    ingredients: [{ itemId: 'any_plank', count: 6 }],
     station: 'inventory',
     category: 'doors'
   },
@@ -2197,6 +2220,7 @@ export interface FurnaceSmeltRecipe {
 }
 
 export const FURNACE_SMELTING_RECIPES: FurnaceSmeltRecipe[] = [
+ ...Object.values(CREATURE_FOOD).filter(i=>i.id.startsWith('raw_')).map(i=>({id:'cook_'+i.id,inputItemId:i.id,inputLabel:i.name,result:CREATURE_FOOD[i.id.replace('raw_','cooked_')],resultCount:1,minTemp:1,smeltTime:SMELT_DURATION_SECONDS})),
   {
     id: 'smelt_charcoal',
     inputItemId: 'any_wood',
@@ -2215,6 +2239,7 @@ export const FURNACE_SMELTING_RECIPES: FurnaceSmeltRecipe[] = [
     minTemp: 1,
     smeltTime: SMELT_DURATION_SECONDS
   },
+  {id:'cook_meat',inputItemId:'raw_meat',inputLabel:'Raw Meat',result:ITEM_REGISTRY['cooked_meat'],resultCount:1,minTemp:1,smeltTime:20},
   {
     id: 'smelt_glass',
     inputItemId: 'sand',
@@ -2472,15 +2497,17 @@ export function getFurnaceTemperature(state: FurnaceState): number {
  */
 export function tickFurnaceState(
   prev: FurnaceState,
-  dt: number
+  dt: number,
+  age?:number
 ): { next: FurnaceState; changed: boolean; smeltedItem: ItemDef | null } {
   const recipe = prev.inputSlot.item && prev.inputSlot.count > 0
     ? getFurnaceRecipeForInput(prev.inputSlot.item)
     : null;
+  const produced=recipe?(prev.inputSlot.item?.preserved&&recipe.result.type==='food'?preserveFood(recipe.result):age!==undefined?ageFood(recipe.result,age):recipe.result):null;
   const canOutput = Boolean(
     recipe &&
     (!prev.outputSlot.item ||
-      (prev.outputSlot.item.id === recipe.result.id &&
+      (canStackItems(prev.outputSlot.item,produced) &&
         prev.outputSlot.count + recipe.resultCount <= (recipe.result.maxStack || 64)))
   );
 
@@ -2546,12 +2573,12 @@ export function tickFurnaceState(
       }
 
       if (!next.outputSlot.item) {
-        next.outputSlot.item = recipe.result;
+        next.outputSlot.item = produced;
         next.outputSlot.count = recipe.resultCount;
       } else {
         next.outputSlot.count += recipe.resultCount;
       }
-      smeltedItem = recipe.result;
+      smeltedItem = produced;
     }
   } else if (!recipe || !canOutput) {
     next.smeltProgress = 0;

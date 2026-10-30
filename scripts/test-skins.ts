@@ -1,0 +1,12 @@
+import assert from 'node:assert/strict';
+import * as THREE from 'three';
+import {PlayerAvatar,SKIN_PARTS} from '../src/game/player/PlayerAvatar';
+const texture=new THREE.Texture();let textureDisposed=false;texture.addEventListener('dispose',()=>textureDisposed=true);
+const avatar=new PlayerAvatar(texture);
+const bounds=new THREE.Box3().setFromObject(avatar.root);const size=bounds.getSize(new THREE.Vector3());
+assert.ok(size.y>1.8 && size.y<1.85);
+let meshes=0;avatar.root.traverse(object=>{if(object instanceof THREE.Mesh){meshes++;const uv=object.geometry.getAttribute('uv');for(let i=0;i<uv.count;i++){assert.ok(uv.getX(i)>=0&&uv.getX(i)<=1);assert.ok(uv.getY(i)>=0&&uv.getY(i)<=1);}}});assert.equal(meshes,12);
+assert.notDeepEqual(SKIN_PARTS.leftArm,SKIN_PARTS.rightArm);
+avatar.update(1,2,3,.5,.2,5,.1);assert.deepEqual(avatar.root.position.toArray(),[1,2,3]);assert.notEqual(avatar.leftLeg.rotation.x,0);assert.equal(avatar.leftLeg.rotation.x,-avatar.rightLeg.rotation.x);
+const scene=new THREE.Scene();scene.add(avatar.root);avatar.dispose();assert.equal(scene.children.length,0);assert.ok(textureDisposed);
+console.log('Player proportions, atlas bounds, independent limbs, animation and resource cleanup passed.');

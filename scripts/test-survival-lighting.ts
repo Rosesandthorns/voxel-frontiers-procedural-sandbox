@@ -1,0 +1,15 @@
+import assert from 'node:assert/strict';
+import {Survival} from '../src/game/player/Survival';
+import {VoxelLighting,blocksSunlight} from '../src/game/environment/VoxelLighting';
+import {Chunk} from '../src/game/voxel/Chunk';import {BiomeType,BlockType} from '../src/types';
+const input={age:0,underwater:false,cactus:false,grounded:true,y:100,flying:false};
+const s=new Survival();s.tick(0,input);s.tick(0,{...input,age:3});assert.equal(s.state.hunger,100);s.tick(0,{...input,age:4});assert.equal(s.state.hunger,55);s.tick(0,{...input,age:4.5});assert.equal(s.state.hunger,32.5);assert.equal(s.eat(20),true);assert.equal(s.state.hunger,52.5);
+const breath=new Survival();let damage=0;for(let i=0;i<20;i++)damage+=breath.tick(1,{...input,underwater:true});assert.equal(damage,0);assert.equal(breath.state.oxygen,0);damage+=breath.tick(1,{...input,underwater:true});damage+=breath.tick(1,{...input,underwater:true});assert.equal(damage,-2);breath.tick(1,input);assert.equal(breath.state.oxygen,8);
+const starving=new Survival();starving.state.hunger=0;let starvation=0;for(let i=0;i<4;i++)starvation+=starving.tick(1,input);assert.equal(starvation,-1);
+const falling=new Survival();falling.tick(.1,{...input,y:110,grounded:false});assert.equal(falling.tick(.1,{...input,y:100,grounded:true}),-7);assert.equal(new Survival().tick(1,{...input,cactus:true}),-1);
+const healing=new Survival();let healed=0;for(let i=0;i<10;i++)healed+=healing.tick(1,input);assert.equal(healed,1);const saved=JSON.parse(JSON.stringify(s.snapshot())),copy=new Survival();copy.restore(saved);assert.deepEqual(copy.snapshot(),saved);
+const chunk=new Chunk(0,0,BiomeType.VERDANT_PLAINS);for(let x=0;x<16;x++)for(let z=0;z<16;z++){chunk.setBlock(x,10,z,BlockType.STONE);chunk.setBlock(x,15,z,BlockType.STONE);}for(let y=11;y<15;y++)for(let z=0;z<16;z++)chunk.setBlock(8,y,z,BlockType.STONE);chunk.setBlock(3,11,3,BlockType.TORCH);
+const world={chunks:new Map([['0,0',chunk]]),getBlock:(x:number,y:number,z:number)=>x>=0&&x<16&&z>=0&&z<16?chunk.getBlock(x,y,z):BlockType.AIR};const lighting=new VoxelLighting(world);lighting.track(chunk);for(let i=0;i<30;i++)lighting.process();assert.equal(lighting.sky(4,11,4),0);assert.ok(lighting.torch(4,11,3)>0);assert.equal(lighting.torch(10,11,3),0,'Torch light cannot pass through a sealed wall');
+chunk.setBlock(12,15,12,BlockType.GLASS);assert.equal(lighting.sky(12,11,12),1);chunk.setBlock(12,15,12,BlockType.OAK_LEAVES);assert.equal(lighting.sky(12,11,12),1);assert.equal(blocksSunlight(BlockType.JADELEAF_FERN),false);assert.equal(lighting.level(12,11,12,.1),0);assert.equal(lighting.level(12,11,12,.5),15);
+chunk.setBlock(3,11,3,BlockType.AIR);lighting.edit(3,11,3,BlockType.AIR);for(let i=0;i<5;i++)lighting.process();assert.equal(lighting.torch(4,11,3),0);
+console.log('Three-day grace, 45%-per-day hunger, eating, breath/drowning, starvation, fall/cactus damage, healing, persistence and occluded torch/sunlight passed.');

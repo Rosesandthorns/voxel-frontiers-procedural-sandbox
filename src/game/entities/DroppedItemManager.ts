@@ -1,3 +1,5 @@
+import {getItemIcon} from '../systems/ItemRegistry';
+import {ageFood} from '../systems/FoodFreshness';
 import * as THREE from 'three';
 import { BlockType, ItemDef } from '../../types';
 import { soundManager } from '../audio/SoundFX';
@@ -56,6 +58,7 @@ export class DroppedItemManager {
     customVel?: THREE.Vector3,
     initialAge: number = 0
   ): DroppedItem {
+    const runtime=this.world.captureRuntime?.();item=ageFood(item,(runtime?.environment?.totalDays??1)-1+(runtime?.timeOfDay??0));
     const id = `drop_${Math.random().toString(36).substr(2, 9)}`;
     const mesh = this.createItemMesh(item);
 
@@ -171,7 +174,7 @@ export class DroppedItemManager {
     mesh.castShadow = true;
 
     // 3. Resolve icon source URL
-    const iconUrl = item.icon || (item.blockId !== undefined ? getBlockSideTexture(item.blockId) : '');
+    const iconUrl = getItemIcon(item);
 
     if (iconUrl) {
       this.loadAndBuildGeometry(item.id, iconUrl, (builtGeo) => {
@@ -537,7 +540,7 @@ export class DroppedItemManager {
 
         if (dist < 0.65) {
           // Collected!
-          onCollect(drop.item, drop.count);
+          onCollect(ageFood(drop.item,(this.world.captureRuntime?.().environment?.totalDays??1)-1+(this.world.captureRuntime?.().timeOfDay??0)), drop.count);
           soundManager.playItemPickup();
           this.scene.remove(drop.mesh);
           continue;

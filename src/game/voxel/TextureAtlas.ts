@@ -1,7 +1,8 @@
+import {CHALK_RGB} from '../systems/Workshop';
 import * as THREE from 'three';
 import { BlockType } from '../../types';
 import { registerAllRemainingBlocks32 } from './RegisterBlocks32';
-import { generateWaterFrames } from './TextureGenerators32';
+import { generatePlanks32,generateWorkshopTexture,generateTorch,generateWaterFrames,generateLeaves,generateLogTop,generateLogSide } from './TextureGenerators32';
 import { registerAllCropTextures } from '../farming/CropTextures';
 
 // 32x32 pixels per block face. Procedural textures still use a 16-step
@@ -420,6 +421,18 @@ export class TextureAtlas {
 
     // Register all 54 crop stages, trellises, wild sea cabbage, and tall crop tops
     registerAllCropTextures(registerBlock32);
+    for(let id=740;id<744;id++){const rgb=[[210,193,153],[155,133,105],[185,191,175],[181,139,84]][id-740] as [number,number,number],tex=generatePlanks32(rgb,id);registerBlock32(id as BlockType,tex,tex);}
+    for(let id=700;id<716;id++){const color=['#a4694e','#a4a568','#b28e59','#778e96','#c1a477','#aba999','#75805a','#aa8963','#9f8b61','#8c7762','#98624e','#b19168','#d2c199','#9b8569','#b9bfaf','#b58b54'][id-700],top=generateWorkshopTexture('chest',true,color),side=generateWorkshopTexture('chest',false,color);registerBlock32(id as BlockType,top,side);}
+    const potSide=generateWorkshopTexture('cauldron');registerBlock32(BlockType.CAULDRON,generateWorkshopTexture('cauldron',true,'#171e1d'),potSide);const rack=generateWorkshopTexture('rack');registerBlock32(BlockType.DRYING_RACK,rack,rack);
+    for(let i=0;i<CHALK_RGB.length;i++){const chalk=generateWorkshopTexture('chalk',true,CHALK_RGB[i]);registerBlock32((600+i) as BlockType,chalk,chalk);}
+    for(let i=0;i<6;i++)registerBlock32((650+i) as BlockType,generateWorkshopTexture('cauldron',true,['#497d9e','#b6a369','#bd514b','#5073ae','#cbb54b','#648e4d'][i]),potSide);
+    const torchTexture=generateTorch();registerBlock32(BlockType.TORCH,torchTexture,torchTexture);
+    for(const [log,leaf,seed,pale]of [[BlockType.BIRCH_LOG,BlockType.BIRCH_LEAVES,841,true],[BlockType.JUNIPER_LOG,BlockType.JUNIPER_LEAVES,842,false]] as const){registerBlock32(log,generateLogTop([90,80,62],[205,183,130],[158,137,94],[120,105,75],seed),generateLogSide(pale?[127,124,113]:[62,62,50],pale?[209,207,188]:[112,105,81],pale?[240,237,216]:[149,141,112],undefined,seed+1));const leaves=generateLeaves({shadow:[35,57,39],dark:[49,78,52],mid:pale?[101,145,60]:[78,119,99],light:pale?[145,178,83]:[114,153,130],highlight:[177,194,127]},seed+2,.91);registerBlock32(leaf,leaves,leaves);}
+    registerBlock32(BlockType.CLOUD_CEDAR_LOG,generateLogTop([96,105,92],[194,191,157],[142,137,108],[119,111,83],821),generateLogSide([102,111,103],[154,162,150],[191,194,178],undefined,822));
+    registerBlock32(BlockType.AMBER_PINE_LOG,generateLogTop([99,56,31],[208,166,90],[172,112,51],[128,80,39],823),generateLogSide([80,46,32],[135,81,45],[182,120,65],undefined,824));
+    const cloud=generateLeaves({shadow:[32,62,57],dark:[48,83,73],mid:[75,116,100],light:[108,147,127],highlight:[154,177,149]},825,.93);
+    const amber=generateLeaves({shadow:[62,66,33],dark:[89,98,42],mid:[132,143,59],light:[173,172,81],highlight:[207,194,108]},826,.94);
+    registerBlock32(BlockType.CLOUD_CEDAR_LEAVES,cloud,cloud);registerBlock32(BlockType.AMBER_PINE_LEAVES,amber,amber);
   }
 
   public getUVs(blockId: BlockType): BlockUVs {

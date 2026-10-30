@@ -1,0 +1,23 @@
+import {BlockType} from '../../types';
+import {isLeavesBlock,isPlantBlock,isWaterBlock} from '../voxel/Blocks';
+import type {Chunk} from '../voxel/Chunk';
+export function blocksSunlight(block:BlockType){return block!==BlockType.AIR&&block!==BlockType.GLASS&&!isLeavesBlock(block)&&!isPlantBlock(block)&&!isWaterBlock(block);}
+interface Reader {getBlock(x:number,y:number,z:number):BlockType;chunks:Map<string,Chunk>}
+const directions=[[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]];
+export class VoxelLighting {
+ private sources=new Map<string,[number,number,number]>();private values=new Map<string,number>();private queue:Array<[number,number,number,number]>=[];private cursor=0;private changed=new Set<string>();
+ private ambient=new Map<string,number>();
+ private columns=new WeakMap<Chunk,Map<number,{revision:number;height:number}>>();
+ constructor(private world:Reader){}
+ track(chunk:Chunk){this.ambient.clear();if(chunk.voxels.includes(BlockType.TORCH))for(let i=0;i<chunk.voxels.length;i++)if(chunk.voxels[i]===BlockType.TORCH)this.source(chunk.cx*16+(i%16),Math.floor(i/256),chunk.cz*16+(Math.floor(i/16)%16));for(const [sy,s]of chunk.extraSections)if(s.blocks.includes(BlockType.TORCH))for(let i=0;i<4096;i++)if(s.blocks[i]===BlockType.TORCH)this.source(chunk.cx*16+(i%16),sy*16+Math.floor(i/256),chunk.cz*16+(Math.floor(i/16)%16));if([...this.sources.values()].some(([x,,z])=>Math.abs(x-(chunk.cx*16+8))<=30&&Math.abs(z-(chunk.cz*16+8))<=30))this.invalidate();}
+ forget(cx:number,cz:number){this.ambient.clear();let removed=false;for(const [key,[x,,z]]of this.sources)if(Math.floor(x/16)===cx&&Math.floor(z/16)===cz){this.sources.delete(key);removed=true;}if(removed)this.invalidate();}
+ private source(x:number,y:number,z:number){this.sources.set(`${x},${y},${z}`,[x,y,z]);}
+ edit(x:number,y:number,z:number,block:BlockType){const key=`${x},${y},${z}`;if(block===BlockType.TORCH)this.source(x,y,z);else this.sources.delete(key);this.invalidate();}
+ private invalidate(){this.ambient.clear();for(const key of this.values.keys()){const [x,,z]=key.split(',').map(Number);this.changed.add(`${Math.floor(x/16)},${Math.floor(z/16)}`);}this.values.clear();this.queue=[...this.sources.values()].map(([x,y,z])=>[x,y,z,14]);this.cursor=0;this.columns=new WeakMap();}
+ process(budget=4096){let work=0;while(this.cursor<this.queue.length&&work++<budget){const [x,y,z,level]=this.queue[this.cursor++];if(y<0||level<=0)continue;const key=`${x},${y},${z}`,chunkKey=`${Math.floor(x/16)},${Math.floor(z/16)}`;if(!this.world.chunks.has(chunkKey)||blocksSunlight(this.world.getBlock(x,y,z))||(this.values.get(key)??0)>=level)continue;this.values.set(key,level);this.changed.add(chunkKey);for(const [dx,dy,dz]of directions)this.queue.push([x+dx,y+dy,z+dz,level-1]);}if(this.cursor===this.queue.length){this.queue=[];this.cursor=0;}const changed=[...this.changed];this.changed.clear();return changed;}
+ sky(x:number,y:number,z:number){x=Math.floor(x);y=Math.floor(y);z=Math.floor(z);const chunk=this.world.chunks.get(`${Math.floor(x/16)},${Math.floor(z/16)}`);if(!chunk)return 0;const key=(x&15)+(z&15)*16;let column=this.columns.get(chunk);if(!column){column=new Map();this.columns.set(chunk,column);}let value=column.get(key);if(!value||value.revision!==chunk.saveRevision){value={revision:chunk.saveRevision,height:chunk.columnTop(x&15,z&15,blocksSunlight)};column.set(key,value);}return y>value.height?1:0;}
+ skylight(x:number,y:number,z:number){x=Math.floor(x);y=Math.floor(y);z=Math.floor(z);if(this.sky(x,y,z))return 1;const key=`${x},${y},${z}`,cached=this.ambient.get(key);if(cached!==undefined)return cached;let value=0;for(const [dx,,dz]of directions){if(!dx&&!dz)continue;for(let distance=1;distance<=4;distance++){const px=x+dx*distance,pz=z+dz*distance;if(!this.world.chunks.has(`${Math.floor(px/16)},${Math.floor(pz/16)}`)||blocksSunlight(this.world.getBlock(px,y,pz)))break;if(this.sky(px,y,pz)){value=Math.max(value,1-distance*.16);break;}}}if(this.ambient.size>200000)this.ambient.clear();this.ambient.set(key,value);return value;}
+ torch(x:number,y:number,z:number){return (this.values.get(`${Math.floor(x)},${Math.floor(y)},${Math.floor(z)}`)??0)/14;}
+ level(x:number,y:number,z:number,time:number){const sun=Math.max(0,Math.sin((time-.25)*Math.PI*2));return Math.max(Math.round(this.skylight(x,y,z)*sun*15),Math.round(this.torch(x,y,z)*14));}
+ attributes(cx:number,cz:number,positions:Float32Array,normals:Float32Array){const sky=new Float32Array(positions.length/3),torch=new Float32Array(sky.length);for(let i=0;i<sky.length;i++){const p=i*3,x=cx*16+positions[p]+normals[p]*.02,y=positions[p+1]+normals[p+1]*.02,z=cz*16+positions[p+2]+normals[p+2]*.02;sky[i]=this.skylight(x,y,z);torch[i]=this.torch(x,y,z);}return {sky,torch};}
+}

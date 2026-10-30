@@ -45,6 +45,7 @@ export class SoundFX {
   private bufferLoadingPromises: Map<string, Promise<AudioBuffer | null>> = new Map();
 
   // Active looping tracks
+  private worldLoops = new Set<AudioBufferSourceNode>();
   private activeWalkKey: string | null = null;
   private currentWalkTrack: ActiveLoopTrack | null = null;
   private rainTrack: ActiveLoopTrack | null = null;
@@ -103,6 +104,20 @@ export class SoundFX {
     if (this.ctx && this.ctx.state === 'suspended') {
       this.ctx.resume();
     }
+  }
+
+  public stopWorldAudio() {
+    for(const source of this.worldLoops) { try {source.stop();} catch {} source.disconnect(); }
+    this.worldLoops.clear();
+    for (const track of [this.currentWalkTrack, this.rainTrack, this.snowstormTrack, this.oceanTrack, this.swimTrack]) {
+      if (!track) continue;
+      try { track.source.stop(); } catch { /* already ended */ }
+      track.source.disconnect(); track.gain.disconnect();
+    }
+    this.currentWalkTrack = this.rainTrack = this.snowstormTrack = this.oceanTrack = this.swimTrack = null;
+    this.activeWalkKey = null;
+    for (const source of this._lastStepSources) { try { source.stop(); } catch {} }
+    this._lastStepSources = [];
   }
 
   public applySettings(settings: Pick<WorldSettings, 'soundVolume' | 'ambientVolume' | 'effectsVolume' | 'footstepsVolume'>) {
@@ -198,6 +213,8 @@ export class SoundFX {
     const source = this.ctx.createBufferSource();
     source.buffer = this.pinkNoiseBuffer;
     source.loop = true;
+    this.worldLoops.add(source);
+    source.addEventListener('ended', () => this.worldLoops.delete(source), {once:true});
     source.loopStart = Math.random() * 1.5;
     source.loopEnd = source.loopStart + duration + 0.05;
 
@@ -341,6 +358,8 @@ export class SoundFX {
     const src = this.ctx.createBufferSource();
     src.buffer = buffer;
     src.loop = true;
+    this.worldLoops.add(src);
+    src.addEventListener('ended', () => this.worldLoops.delete(src), {once:true});
     src.loopStart = startOffset;
     src.loopEnd = buffer.duration;
 
@@ -554,6 +573,8 @@ export class SoundFX {
       const src = this.ctx.createBufferSource();
       src.buffer = buffer;
       src.loop = true;
+    this.worldLoops.add(src);
+    src.addEventListener('ended', () => this.worldLoops.delete(src), {once:true});
       src.loopStart = startOffset;
       if (loopEnd !== undefined && loopEnd > 0 && loopEnd < buffer.duration) {
         src.loopEnd = loopEnd;

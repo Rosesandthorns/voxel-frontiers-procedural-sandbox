@@ -1,3 +1,4 @@
+import {BETA_CREATURES} from './BetaCreatures';
 import * as THREE from 'three';
 import { BlockType, EntitySpecies, EntityState } from '../../types';
 import { BLOCK_DEFS } from '../voxel/Blocks';
@@ -25,6 +26,7 @@ export interface EntityHitboxDef {
  * phantom hit areas.
  */
 export const ENTITY_HITBOX_DEFS: Record<EntitySpecies, EntityHitboxDef> = {
+  ...Object.fromEntries(Object.entries(BETA_CREATURES).map(([species,def])=>[species,{width:def.size[0],height:def.size[1],depth:def.size[2],yOffset:0,collisionRadius:def.size[0]*.4,collisionHeight:def.size[1]*.9}])) as Record<EntitySpecies,EntityHitboxDef>,
   [EntitySpecies.CARDINAL]: {
     width: 0.22,
     height: 0.32,

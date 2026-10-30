@@ -1,3 +1,5 @@
+import { workerBudget } from './WorkerBudget';
+import { copyMeshBorder } from './MeshBorders';
 /**
  * MeshWorkerPool
  *
@@ -30,6 +32,7 @@ interface PendingMeshRequest {
   cz: number;
   voxels: Uint16Array;
   waterValues?: Uint8Array;
+  vertical?:{below:Uint16Array;above:Uint16Array};
   maxY: number;
   isSicklyWater: boolean;
   neighborNegX?: Uint16Array;
@@ -51,7 +54,7 @@ export class MeshWorkerPool {
   private nextId = 0;
 
   constructor(uvMap: Map<BlockType, any>) {
-    const count = Math.max(2, Math.min(6, (navigator.hardwareConcurrency ?? 4) - 1));
+    const count = workerBudget().meshing;
     const uvMapEntries = Array.from(uvMap.entries());
 
     for (let i = 0; i < count; i++) {
@@ -77,7 +80,8 @@ export class MeshWorkerPool {
     neighborPosX?: Uint16Array,
     neighborNegZ?: Uint16Array,
     neighborPosZ?: Uint16Array,
-    waterValues?: Uint8Array
+    waterValues?: Uint8Array,
+    vertical?:{below:Uint16Array;above:Uint16Array}
   ): Promise<MeshResult> {
     return new Promise((resolve) => {
       const id = this.nextId++;
@@ -86,7 +90,7 @@ export class MeshWorkerPool {
         cx,
         cz,
         voxels,
-        waterValues,
+        waterValues,vertical,
         maxY,
         isSicklyWater,
         neighborNegX,
@@ -132,20 +136,24 @@ export class MeshWorkerPool {
   private _dispatch(ws: WorkerState, req: PendingMeshRequest): void {
     ws.busy = true;
     this.inflight.set(req.id, req);
+    const voxels=req.voxels.slice(),waterValues=req.waterValues?.slice();
+    const neighborNegX=copyMeshBorder(req.neighborNegX,'x',15),neighborPosX=copyMeshBorder(req.neighborPosX,'x',0);
+    const neighborNegZ=copyMeshBorder(req.neighborNegZ,'z',15),neighborPosZ=copyMeshBorder(req.neighborPosZ,'z',0);
+    const transfer=[voxels,waterValues,neighborNegX,neighborPosX,neighborNegZ,neighborPosZ].filter(Boolean).map(array=>array!.buffer);
     ws.worker.postMessage({
-      type: 'mesh',
+      type: 'mesh',vertical:req.vertical,
       id: req.id,
       cx: req.cx,
       cz: req.cz,
-      voxels: req.voxels,
-      waterValues: req.waterValues,
+      voxels,
+      waterValues,
       maxY: req.maxY,
       isSicklyWater: req.isSicklyWater,
-      neighborNegX: req.neighborNegX,
-      neighborPosX: req.neighborPosX,
-      neighborNegZ: req.neighborNegZ,
-      neighborPosZ: req.neighborPosZ
-    });
+      neighborNegX,
+      neighborPosX,
+      neighborNegZ,
+      neighborPosZ
+    },transfer);
   }
 
   private _onMessage(e: MessageEvent): void {

@@ -106,6 +106,17 @@ export class SeasonWeatherSystem {
     this.weatherBlend = 1.0;
   }
 
+  public snapshot() {
+    return {season:this.season,dayInSeason:this.dayInSeason,totalDays:this.totalDays,currentWeather:this.currentWeather,targetWeather:this.targetWeather,weatherBlend:this.weatherBlend,weatherDurationDays:this.weatherDurationDays,weatherProgressDays:this.weatherProgressDays,lastTimeOfDay:this.lastTimeOfDay,snowAccumulateTimer:this.snowAccumulateTimer,snowMeltTimer:this.snowMeltTimer,nextLightningTime:this.nextLightningTime,lightningTimer:this.lightningTimer};
+  }
+
+  public restore(value: Partial<ReturnType<SeasonWeatherSystem['snapshot']>>) {
+    if(Object.values(Season).includes(value.season!))this.season=value.season!;
+    for(const key of ['currentWeather','targetWeather'] as const)if(Object.values(WeatherType).includes(value[key]!))this[key]=value[key]!;
+    const ranges={dayInSeason:[1,7],totalDays:[1,1e9],weatherBlend:[0,1],weatherDurationDays:[.01,10],weatherProgressDays:[0,10],lastTimeOfDay:[0,1],snowAccumulateTimer:[0,1e6],snowMeltTimer:[0,1e6],nextLightningTime:[0,1e6],lightningTimer:[0,1e6]};
+    for(const key of Object.keys(ranges) as (keyof typeof ranges)[]){const n=value[key];if(typeof n==='number'&&Number.isFinite(n)){const [min,max]=ranges[key];this[key]=Math.max(min,Math.min(max,n));}}
+  }
+
   /**
    * Returns true if current or transitioning weather produces rain precipitation.
    */
@@ -131,6 +142,7 @@ export class SeasonWeatherSystem {
     world: VoxelWorld | null,
     playerPos: THREE.Vector3 | null
   ) {
+    if(world?.isRemote){this.weatherBlend=Math.min(1,this.weatherBlend+delta*this.transitionSpeed);this.lightningFlash=Math.max(0,this.lightningFlash-delta*4.5);return;}
     // 1. Calculate timeOfDay progression
     let timeDelta = timeOfDay - this.lastTimeOfDay;
     if (timeDelta < -0.5) {

@@ -196,7 +196,25 @@ export enum BlockType {
   CEIBA_DOOR_TOP = 183,
   CEIBA_DOOR_BOTTOM_OPEN = 184,
   CEIBA_DOOR_TOP_OPEN = 185,
-  SALT_WATER = 186
+  SALT_WATER = 186,
+  CLOUD_CEDAR_LOG = 187,
+  CLOUD_CEDAR_LEAVES = 188,
+  AMBER_PINE_LOG = 189,
+  AMBER_PINE_LEAVES = 190,
+  BIRCH_LOG = 191,
+  BIRCH_LEAVES = 192,
+  JUNIPER_LOG = 193,
+  JUNIPER_LEAVES = 194,
+  TORCH = 195,
+  CAULDRON = 196,
+  DRYING_RACK = 197,
+  CHALK_MARK = 600,
+  CAULDRON_WATER = 650,
+  CAULDRON_VINEGAR = 651,
+  CAULDRON_RED = 652,
+  CAULDRON_BLUE = 653,
+  CAULDRON_YELLOW = 654,
+  CAULDRON_GREEN = 655
 }
 
 export enum Season {
@@ -270,6 +288,12 @@ export interface BlockDef {
 }
 
 export interface ItemDef {
+  nutrition?:number;
+  shelfLifeDays?:number;
+  freshUntilDay?:number;
+  foodState?:'fresh'|'stale'|'preserved';
+  preserved?:boolean;
+  neverSpoils?:boolean;
   id: string;
   name: string;
   type: 'block' | 'tool' | 'weapon' | 'utility' | 'food' | 'relic';
@@ -278,6 +302,7 @@ export interface ItemDef {
   description: string;
   maxStack: number;
   durability?: number;
+  maxDurability?: number;
   damage?: number;
   toolType?: 'pickaxe' | 'axe' | 'shovel' | 'hoe';
   tier?: number;
@@ -290,6 +315,10 @@ export interface InventorySlot {
 }
 
 export enum EntitySpecies {
+  VILLAGER='Villager', FORTRESS_KEEPER='Fortress Keeper',
+  PENGUIN='Penguin', WOLF='Wolf', PIGEON='Pigeon', CAT='Cat', SNAKE='Snake', RAT='Rat',
+  COD='Cod', TROPICAL_FISH='Tropical Fish', SQUID='Deep Sea Squid', COW='Cow', PIG='Pig', SHEEP='Sheep', SEAGULL='Seagull',
+  SLIME='Slime', SHADOW_REAPER='Shadow Reaper', BOAT='Wooden Boat',
   REDWOOD_FOX = 'Redwood Fox',
   CARDINAL = 'Cardinal',
   SALMON = 'Salmon',

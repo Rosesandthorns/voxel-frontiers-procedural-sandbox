@@ -1,3 +1,4 @@
+import {buildBetaCreature,animateBetaCreature} from './BetaCreatureModels';
 import * as THREE from 'three';
 import { EntitySpecies } from '../../types';
 import {
@@ -38,6 +39,7 @@ export class EntityModelFactory {
     group.animTime = Math.random() * 10;
     group.parts = {};
 
+    if(buildBetaCreature(group))return group;
     switch (species) {
       case EntitySpecies.REDWOOD_FOX:
         buildRedwoodFoxModel(group);
@@ -556,6 +558,7 @@ export class EntityModelFactory {
 
   // Animation updates for limbs and movement
   public static animateEntity(g: EntityMeshGroup, speed: number, delta: number) {
+    if(animateBetaCreature(g,speed,delta))return;
     g.animTime += delta * 4.0;
     const t = g.animTime;
 

@@ -1,0 +1,12 @@
+const fs=require('node:fs');const path=require('node:path');const crypto=require('node:crypto');
+// Release updates are staged, never overwrite a running server or its world.
+async function stageUpdate(folder,{fetcher=fetch,current=require('../package.json').version}={}){
+ const request=async url=>{const u=new URL(url);if(u.protocol!=='https:'||!['api.github.com','github.com','objects.githubusercontent.com','release-assets.githubusercontent.com'].includes(u.hostname))throw new Error('Untrusted update address');const response=await fetcher(url,{headers:{'User-Agent':'Biome-server'},signal:AbortSignal.timeout(15000)});if(!response.ok)throw new Error(`GitHub returned ${response.status}; continuing with installed server`);return response;};
+ const release=await (await request('https://api.github.com/repos/Rosesandthorns/voxel-frontiers-procedural-sandbox/releases/latest')).json();
+ if(release.draft||release.prerelease)return {available:false};const version=String(release.tag_name).replace(/^v/,'');const parts=v=>v.split('.').map(Number);const newer=(a,b)=>{const aa=parts(a),bb=parts(b);for(let i=0;i<3;i++){if(aa[i]!==bb[i])return aa[i]>bb[i];}return false;};if(!/^\d+\.\d+\.\d+$/.test(version)||!newer(version,current))return {available:false};
+ const asset=release.assets?.find(a=>a.name==='biome-server.cjs'),hash=release.assets?.find(a=>a.name==='biome-server.cjs.sha256');if(!asset||!hash||asset.size>30*1024*1024)throw new Error('Release has no compatible verified server bundle');
+ const expected=(await (await request(hash.browser_download_url)).text()).trim().split(/\s+/)[0];if(!/^[a-f0-9]{64}$/i.test(expected))throw new Error('Invalid server checksum');
+ const response=await request(asset.browser_download_url);const chunks=[];let size=0;for await(const data of response.body){size+=data.length;if(size>30*1024*1024)throw new Error('Update too large');chunks.push(data);}const bytes=Buffer.concat(chunks);if(crypto.createHash('sha256').update(bytes).digest('hex')!==expected.toLowerCase())throw new Error('Server update checksum mismatch');
+ const target=path.join(folder,'updates');fs.mkdirSync(target,{recursive:true});fs.writeFileSync(path.join(target,'biome-server.cjs.tmp'),bytes);fs.renameSync(path.join(target,'biome-server.cjs.tmp'),path.join(target,'biome-server.cjs'));fs.writeFileSync(path.join(target,'version.txt'),version);console.log('Server '+version+' downloaded. Restart with Start server.cmd to apply.');return {available:true,version};
+}
+module.exports={stageUpdate};

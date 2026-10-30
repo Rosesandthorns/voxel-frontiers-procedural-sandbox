@@ -6,3 +6,11 @@ coverage/
 *.log
 .env*
 !.env.example
+
+release/
+desktop/native/*.dll
+
+server-data/
+biome-server/
+server-dist/
+desktop/generated/

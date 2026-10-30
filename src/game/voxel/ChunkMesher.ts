@@ -60,7 +60,10 @@ export class ChunkMesher {
       polygonOffsetFactor: 1,
       polygonOffsetUnits: 1
     });
+    this.installLighting(this.solidMaterial);this.installLighting(this.waterMaterial);
   }
+
+  private installLighting(material:THREE.MeshLambertMaterial){material.onBeforeCompile=shader=>{shader.vertexShader='attribute float biomeSky;attribute float biomeTorch;varying float vBiomeSky;varying float vBiomeTorch;\n'+shader.vertexShader;shader.vertexShader=shader.vertexShader.replace('#include <color_vertex>','#include <color_vertex>\nvBiomeSky=biomeSky;vBiomeTorch=biomeTorch;');shader.fragmentShader='varying float vBiomeSky;varying float vBiomeTorch;\n'+shader.fragmentShader;shader.fragmentShader=shader.fragmentShader.replace('#include <opaque_fragment>','outgoingLight=outgoingLight*vBiomeSky+diffuseColor.rgb*vec3(1.0,0.66,0.29)*vBiomeTorch;\n#include <opaque_fragment>');};material.customProgramCacheKey=()=> 'biome-voxel-light-v1';}
 
   public computeAO(side1: boolean, side2: boolean, corner: boolean): number {
     if (side1 && side2) return 0.45;

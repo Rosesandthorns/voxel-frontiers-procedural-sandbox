@@ -1,38 +1,99 @@
 {
-  "name": "react-example",
+  "name": "biome",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.3.0",
   "type": "module",
   "scripts": {
     "dev": "vite --port=3000 --host=0.0.0.0",
-    "build": "vite build",
+    "build": "vite build && vite build --config vite.server.config.ts && node scripts/build-server.mjs",
     "preview": "vite preview",
-    "clean": "rm -rf dist server.js",
-    "lint": "tsc --noEmit"
+    "clean": "node -e \"require('fs').rmSync('dist', {recursive:true, force:true})\"",
+    "lint": "tsc --noEmit",
+    "desktop": "npm run build && electron .",
+    "package:win": "node scripts/validate-eos-client.mjs && npm run build && electron-builder --win --dir",
+    "test": "tsx scripts/test-save.ts && node scripts/test-world-state.mjs && tsx scripts/test-world.ts && tsx scripts/test-vertical-world.ts && tsx scripts/test-performance.ts && tsx scripts/test-autosave.ts && tsx scripts/test-survival-lighting.ts && tsx scripts/test-food-workshops.ts && tsx scripts/test-beta.ts && tsx scripts/test-server-workshops.ts && node scripts/test-accounts.mjs && tsx scripts/test-skins.ts && node scripts/test-online.mjs && tsx scripts/test-remote-motion.ts && tsx scripts/test-mountains.ts && node scripts/test-server.mjs && node scripts/test-server-update.mjs && node scripts/test-versions.mjs",
+    "test:desktop": "node scripts/smoke-desktop.mjs",
+    "test:upgrade": "tsx scripts/smoke-upgrade.ts",
+    "server": "node desktop/server.cjs"
   },
   "dependencies": {
-    "@google/genai": "^2.4.0",
-    "@tailwindcss/vite": "^4.3.3",
-    "@vitejs/plugin-react": "^6.1.1",
-    "dotenv": "^17.2.3",
-    "express": "^4.21.2",
+    "@supabase/supabase-js": "^2.118.0",
+    "koffi": "^3.3.5",
     "lucide-react": "^0.546.0",
     "motion": "^12.23.24",
     "react": "^19.0.1",
     "react-dom": "^19.0.1",
+    "selfsigned": "^5.5.0",
     "three": "^0.186.1",
-    "vite": "^8.3.0"
+    "yauzl": "^3.4.0"
   },
   "devDependencies": {
-    "@types/express": "^4.17.21",
+    "@tailwindcss/vite": "^4.3.3",
     "@types/node": "^22.14.0",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@types/three": "^0.186.0",
+    "@vitejs/plugin-react": "^6.1.1",
     "autoprefixer": "^10.4.21",
-    "esbuild": "^0.25.0",
+    "electron": "45.1.0",
+    "electron-builder": "26.18.0",
+    "esbuild": "^0.28.2",
+    "playwright": "^1.64.1",
     "tailwindcss": "^4.3.3",
     "tsx": "^4.21.0",
-    "typescript": "^7.0.2"
+    "typescript": "^7.0.2",
+    "vite": "^8.3.0",
+    "yazl": "^3.3.1"
+  },
+  "main": "desktop/main.cjs",
+  "description": "Biome local sandbox",
+  "build": {
+    "appId": "com.biome.game",
+    "productName": "Biome",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "desktop/**/*",
+      "package.json",
+      "!desktop/native/**/*"
+    ],
+    "win": {
+      "target": "dir",
+      "icon": "desktop/icon.ico"
+    },
+    "extraResources": [
+      {
+        "from": ".env.eos.json",
+        "to": "eos-config.json"
+      },
+      {
+        "from": "desktop/native/EOSSDK-Win64-Shipping.dll",
+        "to": "EOSSDK-Win64-Shipping.dll"
+      },
+      {
+        "from": "desktop/native/license.txt",
+        "to": "eos-license.txt"
+      },
+      {
+        "from": "server-dist/biome-server.cjs",
+        "to": "biome-server.cjs"
+      }
+    ],
+    "extraFiles": [
+      {
+        "from": "desktop/Start server.cmd",
+        "to": "Start server.cmd"
+      },
+      {
+        "from": "SERVER.md",
+        "to": "SERVER.md"
+      },
+      {
+        "from": "ACTIVATION.md",
+        "to": "ACTIVATION.md"
+      }
+    ]
   }
 }

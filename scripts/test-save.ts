@@ -1,0 +1,16 @@
+import assert from 'node:assert/strict';
+import { saveGame, loadGame, hasSavedGame } from '../src/game/config/saveManager';
+const slots = (length: number) => Array.from({ length }, () => ({ item: null, count: 0 }));
+let value: string | null = null;
+(globalThis as any).window = { desktop: { store(action: string, data: string) { if (action === 'write') value = data; if (action === 'clear') value = null; return value; } } };
+const fixture = { hotbar: slots(9), inventory: slots(27), health: 13, stamina: 42, coords: { x: -12, y: 70, z: 34 }, yaw: 1.2, seed: 1234, modifiedBlocks: [['-12,70,34', 0] as [string, number]] };
+assert.equal(saveGame(fixture), true);
+assert.equal(loadGame()?.seed, 1234);
+assert.deepEqual(loadGame()?.modifiedBlocks, fixture.modifiedBlocks);
+assert.equal(loadGame()?.health, 13);
+value = '{bad json'; assert.equal(hasSavedGame(), false);
+value = JSON.stringify({ ...fixture, modifiedBlocks: [['invalid', 1]] }); assert.equal(loadGame(), null);
+value = JSON.stringify({ ...fixture, inventory: [] }); assert.equal(loadGame(), null);
+window.desktop!.store = () => { throw new Error('Disk full'); };
+assert.equal(saveGame(fixture), false);
+console.log('Save round-trip, terrain edits, corrupt saves and write-failure tests passed.');

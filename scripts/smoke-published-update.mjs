@@ -1,0 +1,7 @@
+import fs from 'node:fs';import path from 'node:path';import assert from 'node:assert/strict';import {createRequire} from 'node:module';
+const target=process.env.BIOME_TEST_VERSION||'0.2.8';
+const require=createRequire(import.meta.url),{_electron}=require('playwright'),profile=path.resolve('../../work/published-update-'+Date.now());
+const app=await _electron.launch({executablePath:path.resolve('release/0.2.7/win-unpacked/Biome.exe'),args:[],env:{...process.env,VOXEL_USER_DATA:profile}});
+try{const page=await app.firstWindow();await page.getByRole('button',{name:'Versions',exact:true}).click();await page.getByRole('checkbox',{name:`Download version ${target}`,exact:true}).waitFor({timeout:60000});await page.getByRole('checkbox',{name:'Automatically download new versions',exact:true}).check();await page.getByRole('button',{name:'Play this version',exact:true}).waitFor({timeout:240000});
+ const marker=JSON.parse(fs.readFileSync(path.join(profile,`versions/${target}/.biome-verified.json`)));assert.equal(marker.version,target);assert.ok(fs.existsSync(path.join(profile,`versions/${target}/resources/app.asar`)));await page.screenshot({path:'../../outputs/biome-published-update-ready.png'});console.log(`PASS: Published GitHub ${target} detected, automatically downloaded, checksum verified and installed by packaged Biome 0.2.7.`);
+}catch(error){const page=await app.firstWindow();console.log((await page.locator('body').innerText()).slice(-1600));throw error;}finally{await app.close();}
