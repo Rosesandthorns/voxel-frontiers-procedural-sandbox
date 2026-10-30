@@ -1,3 +1,4 @@
+import {bodyClear,safeGroundAhead,clearSight,steerHeading,turnToward} from './CreatureNavigation';
 import {BlockType as B,EntitySpecies as S,type EntityState,type ItemDef} from '../../types';
 import {BLOCK_DEFS,isWaterBlock,isDoorBottom,isDoorOpen,getDoorOppositeStateBlock,getDoorTopForBottom} from '../voxel/Blocks';
 import {structureHash} from '../voxel/Structures';
@@ -39,7 +40,7 @@ export function operateBoat(states:EntityState[],world:Pick<CreatureReader,'getB
 export function betaSpawns(world:CreatureReader,generator:WorldGenerator,cx:number,cz:number):EntityState[]{
  const result:EntityState[]=[],hash=structureHash(cx,cz,generator.seed),x=cx*16+4+Math.floor(hash*7),z=cz*16+5,biome=generator.getSubBiomeAt(x,z),y=generator.getHeightAt(x,z,biome)+1;
  const add=(species:S,px=x+.5,py=y,pz=z+.5)=>{if(world.getBlock(Math.floor(px),Math.floor(py),Math.floor(pz))!==B.AIR&&!BETA_CREATURES[species]?.aquatic)return;result.push(creatureState(`beta:${cx},${cz}:${species}:${result.length}`,species,px,py,pz));};
- if(hash<.2){if(biome.isArctic||/arctic|snow|frost/i.test(biome.id))add(S.PENGUIN);else if(/mountain|range|alpine|summit/i.test(biome.id))add(S.WOLF);else if(biome.isDesert){add(hash<.1?S.SNAKE:S.RAT);}else if(y>101&&y<175&&!/ocean|decay|sickly/i.test(biome.id))add([S.COW,S.PIG,S.SHEEP][Math.floor(hash*100)%3]);}
+ if(hash<.2&&!(generator.generationVersion>=5&&generator.structures.reserved(x,z,0))){if(biome.isArctic||/arctic|snow|frost/i.test(biome.id))add(S.PENGUIN);else if(/mountain|range|alpine|summit/i.test(biome.id))add(S.WOLF);else if(biome.isDesert){add(hash<.1?S.SNAKE:S.RAT);}else if(y>101&&y<175&&!/ocean|decay|sickly/i.test(biome.id))add([S.COW,S.PIG,S.SHEEP][Math.floor(hash*100)%3]);}
  if(y<100&&hash<.27){const sy=y<75?Math.max(y+2,70):97;if(world.getBlock(x,Math.floor(sy),z)===B.WATER)add(y<75&&hash<.08?S.SQUID:hash<.15?S.COD:S.TROPICAL_FISH,x+.5,sy,z+.5);}
  if(hash<.07&&(biome.isDesert===false||!biome.isDesert)&&Math.abs(y-101)<4)add(S.SEAGULL,x+.5,Math.max(y,100),z+.5);
  if(generator.generationVersion>=5)for(const plan of generator.structures.near(cx,cz))for(const [i,p]of plan.inhabitants.entries())if(Math.floor(p.x/16)===cx&&Math.floor(p.z/16)===cz){add(plan.kind==='village'?S.VILLAGER:S.FORTRESS_KEEPER,p.x,p.y,p.z);if(plan.kind==='village'){add(i%2?S.CAT:S.PIGEON,p.x+1,p.y,p.z+1);}}
@@ -51,23 +52,31 @@ export function tickCreature(s:EntityState,delta:number,world:CreatureReader,tar
  if(s.species===S.SHADOW_REAPER&&light>0)return {remove:true,smoke:true};
  let target=targets[0],distance=Infinity;for(const p of targets){const d=Math.hypot(p.x-s.x,p.y-s.y,p.z-s.z);if(d<distance){target=p;distance=d;}}
  let damage: {id?:string;amount:number}|undefined;
- if(def.hostile&&target&&distance<24){s.rotationY=Math.atan2(target.x-s.x,target.z-s.z);if(distance<1.3&&s.customTimer>(s.uniqueData.attackAt??0)){s.uniqueData.attackAt=s.customTimer+1.2;damage={id:target.id,amount:s.species===S.SHADOW_REAPER?4:2};}}
- else if(s.customTimer>(s.uniqueData.turnAt??0)){s.uniqueData.turnAt=s.customTimer+2+structureHash(Math.floor(s.x),Math.floor(s.z),s.id.length)*4;s.rotationY+=(structureHash(Math.floor(s.x*10),Math.floor(s.z*10),Math.floor(s.customTimer))-0.5)*3;}
+ let desired=s.uniqueData.heading??s.rotationY;
+ if(def.hostile&&target&&distance<24){desired=Math.atan2(target.x-s.x,target.z-s.z);if(distance<1.3&&s.customTimer>(s.uniqueData.attackAt??0)&&clearSight(world,{x:s.x,y:s.y+.6,z:s.z},{x:target.x,y:target.y+.6,z:target.z})){s.uniqueData.attackAt=s.customTimer+1.2;damage={id:target.id,amount:s.species===S.SHADOW_REAPER?4:2};}}
+ else if(s.customTimer>(s.uniqueData.turnAt??0)){s.uniqueData.turnAt=s.customTimer+2+structureHash(Math.floor(s.x),Math.floor(s.z),s.id.length)*4;desired+=(structureHash(Math.floor(s.x*10),Math.floor(s.z*10),Math.floor(s.customTimer))-0.5)*2.2;if(!def.hostile&&structureHash(Math.floor(s.customTimer),Math.floor(s.x),s.id.length)<.35)s.uniqueData.restUntil=s.customTimer+1.5+structureHash(Math.floor(s.z),Math.floor(s.x),4)*2;}
+ const fleeing=!def.hostile&&s.species!==S.BOAT&&s.customTimer<(s.uniqueData.fleeUntil??0)&&s.uniqueData.fleeFrom;if(fleeing)desired=Math.atan2(s.x-s.uniqueData.fleeFrom.x,s.z-s.uniqueData.fleeFrom.z);
+ const home=s.uniqueData.home??={x:s.x,y:s.y,z:s.z};if(!def.hostile&&Math.hypot(s.x-home.x,s.z-home.z)>((s.species===S.VILLAGER||s.species===S.FORTRESS_KEEPER)?14:28))desired=Math.atan2(home.x-s.x,home.z-s.z);if(def.hostile&&s.customTimer<(s.uniqueData.avoidUntil??0))desired=s.uniqueData.avoidHeading;s.uniqueData.heading=desired;
+ s.rotationY=turnToward(s.rotationY,desired,dt*(def.hostile?5:2.5));
  const water=isWaterBlock;
  const inWater=water(floor(s.x,s.y+.1,s.z));
- s.vx=Math.sin(s.rotationY)*def.speed;s.vz=Math.cos(s.rotationY)*def.speed;
+ const speed=def.speed*(fleeing?1.7:1);s.vx=Math.sin(s.rotationY)*speed;s.vz=Math.cos(s.rotationY)*speed;
  if(s.species===S.BOAT){s.vx=0;s.vz=0;}
  if(def.aquatic&&inWater){s.vy=water(floor(s.x,s.y+.6,s.z))?.4:-.25;if(s.species===S.SQUID&&s.y>85)s.vy=-.5;}
  else if(s.species===S.SEAGULL&&inWater)s.vy=water(floor(s.x,s.y+.3,s.z))?.5:0;
  else s.vy=Math.max(-18,s.vy-18*dt);
  const solid=(x:number,y:number,z:number)=>!!BLOCK_DEFS[floor(x,y,z)]?.solid;
  const radius=def.size[0]*.4,height=def.size[1]*.85;
- const clear=(x:number,y:number,z:number)=>{for(const dx of [-radius,radius])for(const dz of [-radius,radius])for(const dy of [.05,height*.5,height])if(solid(x+dx,y+dy,z+dz))return false;return true;};
- if(s.species===S.VILLAGER||s.species===S.FORTRESS_KEEPER){const x=Math.floor(s.x+Math.sin(s.rotationY)),y=Math.floor(s.y),z=Math.floor(s.z+Math.cos(s.rotationY)),door=world.getBlock(x,y,z);if(isDoorBottom(door)&&!isDoorOpen(door)){const open=getDoorOppositeStateBlock(door);world.setBlock(x,y,z,open);world.setBlock(x,y+1,z,getDoorTopForBottom(open));s.uniqueData.door={x,y,z,closeAt:s.customTimer+3};}const d=s.uniqueData.door;if(d&&s.customTimer>d.closeAt&&Math.hypot(s.x-d.x-.5,s.z-d.z-.5)>1.5){const b=world.getBlock(d.x,d.y,d.z);if(isDoorBottom(b)&&isDoorOpen(b)){const closed=getDoorOppositeStateBlock(b);world.setBlock(d.x,d.y,d.z,closed);world.setBlock(d.x,d.y+1,d.z,getDoorTopForBottom(closed));}delete s.uniqueData.door;}}
+ const clear=(x:number,y:number,z:number)=>bodyClear(world,x,y,z,radius,height);
+ if(!def.aquatic&&s.species!==S.SEAGULL&&s.customTimer>(s.uniqueData.probeAt??0)){s.uniqueData.probeAt=s.customTimer+.25;const route=steerHeading(world,s.x,s.y,s.z,desired,radius,height);s.uniqueData.blocked=route===null;if(route!==null){s.uniqueData.heading=route;if(def.hostile&&Math.abs(Math.atan2(Math.sin(route-desired),Math.cos(route-desired)))>.2){s.uniqueData.avoidHeading=route;s.uniqueData.avoidUntil=s.customTimer+.6;}}}
+ if(s.uniqueData.blocked||(!def.hostile&&!fleeing&&s.customTimer<(s.uniqueData.restUntil??0))){s.vx=0;s.vz=0;}
+ if(def.aquatic&&!inWater){s.vx=0;s.vz=0;}
+ if(s.species===S.VILLAGER||s.species===S.FORTRESS_KEEPER){const x=Math.floor(s.x+Math.sin(s.rotationY)),y=Math.floor(s.y),z=Math.floor(s.z+Math.cos(s.rotationY)),door=world.getBlock(x,y,z);if(isDoorBottom(door)&&!isDoorOpen(door)){const open=getDoorOppositeStateBlock(door);world.setBlock(x,y,z,open);world.setBlock(x,y+1,z,getDoorTopForBottom(open));s.uniqueData.door={x,y,z,closeAt:s.customTimer+3};}const d=s.uniqueData.door;if(d&&s.customTimer>d.closeAt&&Math.hypot(s.x-d.x-.5,s.z-d.z-.5)>1.5&&!targets.some(p=>Math.abs(p.x-d.x-.5)<.9&&Math.abs(p.z-d.z-.5)<.9&&Math.abs(p.y-d.y)<2)){const b=world.getBlock(d.x,d.y,d.z);if(isDoorBottom(b)&&isDoorOpen(b)){const closed=getDoorOppositeStateBlock(b);world.setBlock(d.x,d.y,d.z,closed);world.setBlock(d.x,d.y+1,d.z,getDoorTopForBottom(closed));}delete s.uniqueData.door;}}
  let nx=s.x+s.vx*dt,nz=s.z+s.vz*dt;
+ const grounded=solid(s.x,s.y-.15,s.z);if(grounded&&!def.aquatic&&s.species!==S.SEAGULL&&!safeGroundAhead(world,nx,s.y,nz)){nx=s.x;nz=s.z;s.vx=0;s.vz=0;s.uniqueData.probeAt=0;}
  if(clear(nx,s.y,nz)){if(!def.aquatic||!inWater||water(floor(nx,s.y+.1,nz))){s.x=nx;s.z=nz;}else s.rotationY+=Math.PI*.7;}
- else if(clear(nx,s.y+1,nz)&&!def.aquatic){s.x=nx;s.z=nz;s.y+=Math.min(1,4*dt);s.vy=2;}
- else{s.rotationY+=1.2;s.vx=0;s.vz=0;}
- const ny=s.y+s.vy*dt;if(clear(s.x,ny,s.z))s.y=ny;else{s.vy=0;if(s.species===S.SLIME&&s.customTimer>(s.uniqueData.hopAt??0)){s.vy=3;s.uniqueData.hopAt=s.customTimer+1.5;}}
+ else if(grounded&&clear(nx,Math.floor(s.y+.05)+1,nz)&&!def.aquatic){s.x=nx;s.z=nz;s.y=Math.floor(s.y+.05)+1;s.vy=0;}
+ else{s.uniqueData.heading=s.rotationY+1.2;s.uniqueData.probeAt=0;s.vx=0;s.vz=0;}
+ const moveY=s.vy*dt,steps=Math.max(1,Math.ceil(Math.abs(moveY)/.2));for(let i=0;i<steps;i++){const ny=s.y+moveY/steps;if(clear(s.x,ny,s.z))s.y=ny;else{s.vy=0;if(s.species===S.SLIME&&s.customTimer>(s.uniqueData.hopAt??0)){s.vy=3;s.uniqueData.hopAt=s.customTimer+1.5;}break;}}
  return {damage};
 }

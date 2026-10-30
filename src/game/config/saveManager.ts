@@ -169,7 +169,7 @@ export function loadGame(id = activeWorld): SavedGameState | null {
 
     if (parsed && Array.isArray(parsed.hotbar) && parsed.hotbar.length === 9 && Array.isArray(parsed.inventory) && parsed.inventory.length === 27) {
 
-      if (parsed.chunkVersions && (typeof parsed.chunkVersions !== 'object' || Array.isArray(parsed.chunkVersions) || !Object.entries(parsed.chunkVersions).every(([key,v]) => /^-?\d+,-?\d+$/.test(key) && Number.isInteger(v) && v >= 1 && v <= 5))) return null;
+      if (parsed.chunkVersions && (typeof parsed.chunkVersions !== 'object' || Array.isArray(parsed.chunkVersions) || !Object.entries(parsed.chunkVersions).every(([key,v]) => /^-?\d+,-?\d+$/.test(key) && Number.isInteger(v) && v >= 1 && v <= 6))) return null;
 
       const slots = [...parsed.hotbar, ...parsed.inventory];
 

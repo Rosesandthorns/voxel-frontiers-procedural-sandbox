@@ -43,7 +43,7 @@ export function createServerWorld(folder:string,seed:number){
  const atomic=(file:string,data:unknown)=>{fs.writeFileSync(file+'.tmp',JSON.stringify(data));fs.renameSync(file+'.tmp',file);};
 
 
- const state=fs.existsSync(stateFile)?JSON.parse(fs.readFileSync(stateFile,'utf8')):{seed,generationVersion:5,chunkVersions:{},players:{}};
+ const state=fs.existsSync(stateFile)?JSON.parse(fs.readFileSync(stateFile,'utf8')):{seed,generationVersion:6,chunkVersions:{},players:{}};
 
 
  if(!Number.isSafeInteger(state.seed))throw new Error('Invalid world seed');
@@ -65,13 +65,13 @@ export function createServerWorld(folder:string,seed:number){
  function checkpoint(){state.creatures=[...creatures.values()];state.betaChunks=[...betaChunks];clock();atomic(stateFile,state);}
 
 
- const generator=new WorldGenerator(state.seed,5,[],state.chunkVersions);
+ const generator=new WorldGenerator(state.seed,6,[],state.chunkVersions);
 
 
  const older=new Map<number,WorldGenerator>();const cache=new Map<string,Chunk>();
 
 
- function save(cx:number,cz:number,chunk:Chunk){const key=`${cx},${cz}`;atomic(path.join(folder,'chunks',key+'.json'),snapshotChunk(chunk,state.chunkVersions[key]??5));}
+ function save(cx:number,cz:number,chunk:Chunk){const key=`${cx},${cz}`;atomic(path.join(folder,'chunks',key+'.json'),snapshotChunk(chunk,state.chunkVersions[key]??6));}
 
 
  function chunk(cx:number,cz:number){
@@ -86,7 +86,7 @@ export function createServerWorld(folder:string,seed:number){
   if(fs.existsSync(file)){const snapshot=JSON.parse(fs.readFileSync(file,'utf8'));value=restoreChunk(cx,cz,snapshot);state.chunkVersions[key]=snapshot.generation;}
 
 
-  else {const version=state.chunkVersions[key]??5;if(version<5&&!older.has(version))older.set(version,new WorldGenerator(state.seed,version));value=(older.get(version)??generator).generateChunk(cx,cz,new Map());state.chunkVersions[key]=version;save(cx,cz,value);atomic(stateFile,state);}
+  else {const version=state.chunkVersions[key]??6;if(version<6&&!older.has(version))older.set(version,new WorldGenerator(state.seed,version));value=(older.get(version)??generator).generateChunk(cx,cz,new Map());state.chunkVersions[key]=version;save(cx,cz,value);atomic(stateFile,state);}
 
 
   cache.set(key,value);lighting.track(value);if(cache.size>160){const oldest=cache.keys().next().value!;const [x,z]=oldest.split(',').map(Number);lighting.forget(x,z);cache.delete(oldest);}return value;
@@ -114,15 +114,15 @@ export function createServerWorld(folder:string,seed:number){
   clock:()=>{const value=clock();atomic(stateFile,state);return value;},
 
 
-  header:(id:string)=>({...((clock(),{spawn:start,timeRate:1/1200,timeOfDay:time,environment:environment.snapshot()})),seed:state.seed,generationVersion:5,chunkVersions:{},modifiedBlocks:[],coords:state.players[id]?.coords??start,player:state.players[id]}),
+  header:(id:string)=>({...((clock(),{spawn:start,timeRate:1/1200,timeOfDay:time,environment:environment.snapshot()})),seed:state.seed,generationVersion:6,chunkVersions:{},modifiedBlocks:[],coords:state.players[id]?.coords??start,player:state.players[id]}),
 
 
   workshop:(coords:{x:number;y:number;z:number},item:any)=>{const {x,y,z}=coords,block=reader.getBlock(x,y,z);if(!isWorkshop(block))throw new Error('Workshop is no longer here.');clock();const key=`${x},${y},${z}`,age=environment.totalDays-1+time,result=interactWorkshop(state.workshops[key],block,item,age);state.workshops[key]=result.state;if(block!==result.block){const c=chunk(Math.floor(x/16),Math.floor(z/16));c.setBlock(x&15,y,z&15,result.block);save(c.cx,c.cz,c);}atomic(stateFile,state);return result;},
   position:(id:string,pose:any)=>{if(!pose||!['x','y','z','yaw'].every(k=>Number.isFinite(pose[k])))return;state.players[id]={...state.players[id],coords:{x:pose.x,y:pose.y,z:pose.z},yaw:pose.yaw};atomic(stateFile,state);},
 
 
-  snapshot:(cx:number,cz:number)=>{const c=chunk(cx,cz);seedCreatures(cx,cz);return snapshotChunk(c,state.chunkVersions[`${cx},${cz}`]??5);},
-  attack:(id:string,item:any,pose:any)=>{const s=creatures.get(id);if(!s||s.species===EntitySpecies.SHADOW_REAPER||s.species===EntitySpecies.VILLAGER||s.species===EntitySpecies.FORTRESS_KEEPER||Math.hypot(s.x-pose.x,s.y-pose.y,s.z-pose.z)>5)return [];s.health-=ITEM_REGISTRY[item?.id??'']?.damage??5;if(s.health>0)return [];creatures.delete(id);return creatureLoot(s.species);},
+  snapshot:(cx:number,cz:number)=>{const c=chunk(cx,cz);seedCreatures(cx,cz);return snapshotChunk(c,state.chunkVersions[`${cx},${cz}`]??6);},
+  attack:(id:string,item:any,pose:any)=>{const s=creatures.get(id);if(!s||s.species===EntitySpecies.SHADOW_REAPER||s.species===EntitySpecies.VILLAGER||s.species===EntitySpecies.FORTRESS_KEEPER||Math.hypot(s.x-pose.x,s.y-pose.y,s.z-pose.z)>5)return [];s.health-=ITEM_REGISTRY[item?.id??'']?.damage??6;s.uniqueData.fleeFrom={x:pose.x,z:pose.z};s.uniqueData.fleeUntil=s.customTimer+4;if(s.health>0)return [];creatures.delete(id);return creatureLoot(s.species);},
   boat:(action:string,id:string|undefined,pose:any,owner:string)=>operateBoat([...creatures.values()],creatureReader,action,id,pose,owner,s=>creatures.set(s.id,s)),
   step:(delta:number,targets:any[])=>{lighting.process();const damage:any[]=[];mobEdits.length=0;for(const s of creatures.values()){if(!cache.has(`${Math.floor(s.x/16)},${Math.floor(s.z/16)}`))continue;if(s.species===EntitySpecies.BOAT&&s.uniqueData.rider){const p=targets.find(t=>t.id===s.uniqueData.rider);if(p){s.x=p.x;s.y=p.y-.3;s.z=p.z;s.rotationY=p.yaw??s.rotationY;continue;}delete s.uniqueData.rider;}const r=tickCreature(s,delta,creatureReader,targets,lighting.level(Math.floor(s.x),Math.floor(s.y+1),Math.floor(s.z),time));if(r.remove)creatures.delete(s.id);if(r.damage)damage.push(r.damage);}if(creatures.size<100&&Math.random()<.015&&targets.length){const t=targets[Math.floor(Math.random()*targets.length)],x=Math.floor(t.x+(Math.random()-.5)*24),y=Math.floor(t.y),z=Math.floor(t.z+(Math.random()-.5)*24);if(cache.has(`${Math.floor(x/16)},${Math.floor(z/16)}`)&&reader.getBlock(x,y,z)===0&&reader.getBlock(x,y+1,z)===0&&reader.getBlock(x,y-1,z)!==0&&lighting.level(x,y+1,z,time)===0){const s=creatureState('dark:'+Date.now(),environment.totalDays-1+time>=3&&Math.random()<.25?EntitySpecies.SHADOW_REAPER:EntitySpecies.SLIME,x+.5,y,z+.5);creatures.set(s.id,s);}}state.creatures=[...creatures.values()];return {states:[...creatures.values()].slice(0,128),damage,edits:[...mobEdits]};},
 

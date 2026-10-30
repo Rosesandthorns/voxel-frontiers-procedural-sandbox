@@ -69,3 +69,15 @@ Save/reload continuity for every new state; two-player host/guest behavior and d
 - Placing, boarding, moving and dismounting boats do not write water or terrain blocks. Tool durability has visible meters, attack/mining/hoe wear, breakage and strictly increasing lifetime by tier.
 - Villages clear natural tree cover without overwriting previously explored terrain. Mountain fortresses select a flatter nearby mountain shoulder. Generation 1–4 chunks remain unchanged; new chunks use generation 5.
 - Current limits: basic villager navigation (no economy/jobs), client-reported survival/inventory, and workshop operations do not yet have a durable cross-disconnect transaction ledger. This is an early development update, not completion of all beta acceptance criteria.
+
+## Local quality pass — 2026-10-30 (unpublished)
+
+- Structures are stamped before trees. Whole tree candidates are excluded with a canopy margin; reserved structure columns also reject vines, flora and boulders. The old post-generation tree cutting pass has been removed.
+- Houses gain sealed gables, species-matching timber frames, storage, simple furnishings and planted entrances. Fortresses gain wall walks, courtyard stairs, tower entrances, arrow windows, crenellations and approach steps.
+- Creature models have visible facial features, species details, jointed legs/hooves, refined idle/walk motion and mipmapped pixel textures. Slime shells use correct transparent material/depth settings.
+- Shared host/server AI gains idle pauses, smoother turning, bounded home ranges, obstacle probes, cliff avoidance, attack line-of-sight, safer stepping, swept vertical collision and fleeing after hits. Villagers will not close a door onto a player. This remains local steering, not full global pathfinding.
+- Type checking, the regression suite, focused quality checks and local model/structure rendering have passed. No release was made for this pass. Before publishing, review generation-version rollout so new structure layouts cannot be mixed with partially explored generation-5 structures.
+
+## Approved 0.3.2 release
+
+The user approved the reworked slime with an open O mouth and requested publication. This release includes the preceding local quality pass. New terrain uses generation 6; generation 5 uses its archived structure planner and original tree order. Partially explored generation-5 structure blueprints continue into neighboring new chunks. Slime palette/core colors and vertical movement are synchronized for guests.

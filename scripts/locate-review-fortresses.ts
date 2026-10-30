@@ -1,0 +1,4 @@
+import fs from 'node:fs';import {WorldGenerator}from'../src/game/voxel/WorldGenerator';
+const found:Record<string,any>={};
+for(const seed of [1337,42,781,2026]){const g=new WorldGenerator(seed,6);for(let radius=0;radius<75&&Object.keys(found).length<3;radius++)for(let z=-radius;z<=radius;z++)for(let x=-radius;x<=radius;x++){if(Math.abs(x)!==radius&&Math.abs(z)!==radius)continue;const p=g.structures.plan(x,z,'fortress');if(!p)continue;const b=g.getSubBiomeAt(p.x,p.z),variant=b.isDesert?'desert':b.isArctic?'snowy':'normal';if(!found[variant]){found[variant]={seed,x:p.x,y:p.y,z:p.z,kind:'fortress',variant,biome:b.name,id:p.id};console.log(found[variant]);}}if(Object.keys(found).length>=3)break;}
+fs.writeFileSync('../../work/review-fortresses.json',JSON.stringify(found,null,2));if(Object.keys(found).length<3)process.exitCode=1;

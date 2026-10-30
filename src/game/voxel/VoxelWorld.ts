@@ -230,7 +230,7 @@ export class VoxelWorld {
 
 
 
-  constructor(scene: THREE.Scene, public readonly seed: number = 1337, generationVersion = 5, chunkVersions: Record<string,number> = {}) {
+  constructor(scene: THREE.Scene, public readonly seed: number = 1337, generationVersion = 6, chunkVersions: Record<string,number> = {}) {
 
     this.scene = scene;
 
@@ -292,7 +292,7 @@ export class VoxelWorld {
 
     const key=this.getChunkKey(cx,cz),loaded=this.chunks.get(key);
 
-    if(loaded)return snapshotChunk(loaded,this.chunkVersions[key]??5);
+    if(loaded)return snapshotChunk(loaded,this.chunkVersions[key]??6);
 
     const saved=await this.chunkStore.readAsync(cx,cz);if(saved)return snapshotChunk(saved.chunk,saved.generation);
 
@@ -300,7 +300,7 @@ export class VoxelWorld {
 
     const chunk=new Chunk(cx,cz,result.biome,result.subBiomeName,result.subBiomeId);chunk.voxels=result.voxels;chunk.maxY=result.maxY;chunk.isSicklyWater=result.isSicklyWater;chunk.waterValues=new Uint8Array(chunk.voxels.length);
 
-    this._applyModifiedBlocks(chunk);this.chunkVersions[key]=this.chunkVersions[key]??5;this.chunkStore.queue(chunk,this.chunkVersions[key]);return snapshotChunk(chunk,this.chunkVersions[key]);
+    this._applyModifiedBlocks(chunk);this.chunkVersions[key]=this.chunkVersions[key]??6;this.chunkStore.queue(chunk,this.chunkVersions[key]);return snapshotChunk(chunk,this.chunkVersions[key]);
 
   }
 
@@ -1047,7 +1047,7 @@ export class VoxelWorld {
 
       if(cached){chunk.waterValues=cached.chunk.waterValues;chunk.loadSections(cached.chunk.cloneSections());}
 
-      this.chunkVersions[key] = cached?.generation ?? this.chunkVersions[key] ?? 5;
+      this.chunkVersions[key] = cached?.generation ?? this.chunkVersions[key] ?? 6;
 
 
 
@@ -1145,7 +1145,7 @@ export class VoxelWorld {
 
       chunk = cached?.chunk ?? (this.chunkVersions[key]===1?this.legacyGenerator:this.chunkVersions[key]===2?this.previousGenerator:this.generator).generateChunk(cx, cz, this.modifiedBlocks);
 
-      this.chunkVersions[key]=cached?.generation ?? this.chunkVersions[key] ?? 5;
+      this.chunkVersions[key]=cached?.generation ?? this.chunkVersions[key] ?? 6;
 
       this._applyModifiedBlocks(chunk);
 
@@ -1610,7 +1610,7 @@ export class VoxelWorld {
 
     this.urgentMeshKeys.delete(this.getChunkKey(chunk.cx,chunk.cz));
 
-    this.chunkStore.queue(chunk,this.chunkVersions[this.getChunkKey(chunk.cx,chunk.cz)] ?? 5);
+    this.chunkStore.queue(chunk,this.chunkVersions[this.getChunkKey(chunk.cx,chunk.cz)] ?? 6);
 
     // Only dispose chunk-owned BufferGeometries; NEVER dispose shared solidMaterial / waterMaterial!
 
@@ -1718,7 +1718,7 @@ export class VoxelWorld {
 
   public queueExploredChunks(): boolean {
 
-    for(const chunk of this.chunks.values())this.chunkStore.queue(chunk,this.chunkVersions[this.getChunkKey(chunk.cx,chunk.cz)] ?? 5);
+    for(const chunk of this.chunks.values())this.chunkStore.queue(chunk,this.chunkVersions[this.getChunkKey(chunk.cx,chunk.cz)] ?? 6);
 
     return !this.chunkStore.hasWriteError;
 
@@ -1730,7 +1730,7 @@ export class VoxelWorld {
 
     let ok=true;
 
-    for(const chunk of this.chunks.values()) if(!this.chunkStore.save(chunk,this.chunkVersions[this.getChunkKey(chunk.cx,chunk.cz)] ?? 5)) ok=false;
+    for(const chunk of this.chunks.values()) if(!this.chunkStore.save(chunk,this.chunkVersions[this.getChunkKey(chunk.cx,chunk.cz)] ?? 6)) ok=false;
 
     return this.chunkStore.flush() && ok;
 

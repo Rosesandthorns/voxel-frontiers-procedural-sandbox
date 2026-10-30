@@ -462,7 +462,7 @@ const GameCanvasComponent: React.FC<GameCanvasProps> = ({
 
     }
 
-    const world = new VoxelWorld(scene, saved?.seed ?? Math.floor(Math.random() * 999999), 5, chunkVersions);
+    const world = new VoxelWorld(scene, saved?.seed ?? Math.floor(Math.random() * 999999), 6, chunkVersions);
     world.workshops=saved?.workshops??{};
 
     for (const [key, block] of saved?.modifiedBlocks ?? []) world.modifiedBlocks.set(key, block);

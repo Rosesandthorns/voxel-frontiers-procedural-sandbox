@@ -2,7 +2,7 @@ import {EntitySpecies as S} from '../../types';
 export function creaturePixels(species:S,part:string,color:number,size=32){
  const data=new Uint8Array(size*size*4),base=[color>>16&255,color>>8&255,color&255];let seed=0;for(const c of species+part)seed=Math.imul(seed,31)+c.charCodeAt(0)|0;
  const noise=(x:number,y:number)=>{let n=Math.imul(x+seed,374761393)^Math.imul(y+17,668265263);n=Math.imul(n^(n>>>13),1274126177);return ((n^(n>>>16))>>>0)/4294967296;};
- const flesh=/nose|beak/.test(part),eye=/eye/.test(part),leg=/leg/.test(part);
+ const flesh=/nose|beak|muzzle|horn|hoof|foot|belt|brow/.test(part),eye=/eye/.test(part),leg=/leg/.test(part);
  for(let y=0;y<size;y++)for(let x=0;x<size;x++){
   const n=noise(x>>1,y>>1),fine=noise(x,y);let rgb=[...base],shade=Math.floor(n*15)-7;
   if(eye){shade=0;if(x>5&&x<10&&y>5&&y<10)rgb=[225,233,228];}

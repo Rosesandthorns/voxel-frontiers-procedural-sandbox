@@ -1,9 +1,10 @@
 {
-  "version": "0.3.1",
-  "updateName": "Version switching fix",
+  "version": "0.3.2",
+  "updateName": "Slime rework and world polish",
   "updateFeatures": [
-    "Release old version folders after switching on Windows",
-    "Safe deletion with intact files when a version is busy",
-    "Automatic cleanup of files Windows releases later"
+    "Reworked jelly slimes with an open O mouth, matched color cores and squash/stretch animation",
+    "Refined creature models, textures, obstacle avoidance and safer collision",
+    "Structures reserve clearings before trees and vegetation",
+    "Detailed houses and fortresses, with original generation-5 layouts preserved"
   ]
 }

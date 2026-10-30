@@ -1,3 +1,4 @@
+import {LegacyStructurePlanner} from './LegacyStructures5';
 import {StructurePlanner} from './Structures';
 import {mountainAt} from './Mountains';
 import { BiomeType, BlockType } from '../../types';
@@ -20,7 +21,7 @@ function hash2(x: number, z: number, seed: number): number {
 }
 
 export class WorldGenerator {
-  public structures:StructurePlanner;
+  public structures:StructurePlanner|LegacyStructurePlanner;
   public surfaceCaveSystem: SurfaceCaveSystem;
   public riverSystem: RiverSystem;
   private legacyGenerator: WorldGenerator | null = null;
@@ -43,7 +44,7 @@ export class WorldGenerator {
   private noiseCaveRoom: FastNoise;
 
   constructor(public seed: number = 1337, public generationVersion = 1, private legacyChunks: string[] = [], private previousChunks:Record<string,number> = {}) {
-    this.structures=new StructurePlanner(this,previousChunks);
+    this.structures=generationVersion>=6?new StructurePlanner(this,previousChunks):new LegacyStructurePlanner(this,previousChunks);
     this.legacyKeys = new Set(legacyChunks);
     for(const version of new Set(Object.values(previousChunks)))if(version<generationVersion)this.previousGenerators.set(version,new WorldGenerator(seed,version));
     if (generationVersion >= 2 && legacyChunks.length) this.legacyGenerator = new WorldGenerator(seed, 1);
@@ -632,6 +633,7 @@ export class WorldGenerator {
    * sinkholes, hollow subterranean caverns, or floating over air/water.
    */
   public isGroundSolidForTree(treeWX: number, groundY: number, treeWZ: number): boolean {
+    if(this.generationVersion>=6&&this.structures.reserved(treeWX,treeWZ,12))return false;
     if (groundY <= SEA_LEVEL || (this.generationVersion<4 && groundY >= CHUNK_H - 24)) return false;
 
     // Check if within or directly over any surface cave mouth or shallow entrance tunnel
@@ -2189,6 +2191,9 @@ export class WorldGenerator {
       }
     }
 
+    // Structures reserve their ground before trees or surface vegetation can be placed.
+    if(this.generationVersion>=6)this.structures.stamp(chunk);
+
     // 3. Procedural Trees (Red Wood Trees, Limeleaf Trees, Oaks)
     // Trees are placed before surface flora so trunk logs are always placed solidly.
     const minCellX = Math.floor((chunkOriginX - 5) / 6);
@@ -2200,6 +2205,7 @@ export class WorldGenerator {
       for (let czCell = minCellZ; czCell <= maxCellZ; czCell++) {
         const tree = this.getTreeInCell(cxCell, czCell);
         if (!tree) continue;
+        if(this.generationVersion>=6&&this.structures.reserved(tree.wx,tree.wz,12))continue;
 
         // Ensure tree trunk rests solidly on real ground (never float over cave entrance or water)
         if (
@@ -2222,6 +2228,7 @@ export class WorldGenerator {
         }
 
         this.stampTree(tree, (twx, twy, twz, bType) => {
+          if(this.generationVersion>=6&&this.structures.reserved(twx,twz,3))return;
           if (
             twx >= chunkOriginX && twx < chunkOriginX + CHUNK_W &&
             twz >= chunkOriginZ && twz < chunkOriginZ + CHUNK_D &&
@@ -2278,6 +2285,7 @@ export class WorldGenerator {
         const zOff = lz * CHUNK_W;
         for (let lx = 0; lx < CHUNK_W; lx++) {
           const wx = chunkOriginX + lx;
+          if(this.generationVersion>=6&&this.structures.reserved(wx,wz,3))continue;
           const colIdx2 = lx + zOff;
           const cacheIdx = lx + lz * CHUNK_W;
           const surfY = colSurfaceYCache[cacheIdx];
@@ -2314,6 +2322,7 @@ export class WorldGenerator {
 
       for (let lx = 0; lx < CHUNK_W; lx++) {
         const wx = chunkOriginX + lx;
+          if(this.generationVersion>=6&&this.structures.reserved(wx,wz,3))continue;
         const colIdx = lx + zOffset;
         const cIdx = lx + lz * CHUNK_W;
         const subBiome = colSubBiomeCache[cIdx];
@@ -2460,6 +2469,7 @@ export class WorldGenerator {
 
       for (let lx = 0; lx < CHUNK_W; lx++) {
         const wx = chunkOriginX + lx;
+          if(this.generationVersion>=6&&this.structures.reserved(wx,wz,3))continue;
         const colIdx = lx + zOffset;
 
         // Reuse cached values from the terrain pass — avoids redundant getSubBiomeAt/getHeightAt/getBiomeParameters calls
@@ -2653,6 +2663,7 @@ export class WorldGenerator {
       for (let lx = 0; lx < CHUNK_W; lx += 4) {
         const wx = chunkOriginX + lx;
         const wz = chunkOriginZ + lz;
+        if(this.generationVersion>=6&&this.structures.reserved(wx,wz,3))continue;
         const subBiome = this.getSubBiomeAt(wx, wz);
         if (subBiome.hasWeirdBoulders) {
           const bHash = hash2(wx, wz, 999);
@@ -2693,9 +2704,10 @@ export class WorldGenerator {
       }
     }
 
-    chunk.maxY = maxChunkY;
+    chunk.maxY = Math.max(maxChunkY,chunk.maxY);
 
-    if(this.generationVersion>=5)this.structures.stamp(chunk);
+
+    if(this.generationVersion===5)this.structures.stamp(chunk);
 
     // Apply any user-modified blocks in this chunk region
     if (modifiedBlocks.size > 0) {

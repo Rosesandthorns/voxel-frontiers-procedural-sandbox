@@ -1,4 +1,5 @@
-import {BETA_CREATURES,betaSpawns,tickCreature,creatureLoot,operateBoat} from './BetaCreatures';
+import {setSlimePalette} from './SlimeModel';
+import {BETA_CREATURES,betaSpawns,tickCreature,creatureLoot,operateBoat,creatureState} from './BetaCreatures';
 import {EntitySpecies as S,type ItemDef} from '../../types';
 import {ITEM_REGISTRY} from '../systems/ItemRegistry';
 import {BlockType} from '../../types';
@@ -28,7 +29,7 @@ export class EntityManager {
   public onDamage:((id:string|undefined,amount:number)=>void)|null=null;
   public onLoot:((item:ItemDef,x:number,y:number,z:number)=>void)|null=null;
   private attackAt=0;
-  public async attack(id:string,item:ItemDef|null,pose?:{x:number;y:number;z:number}){if(this.world.isRemote)return window.desktop!.online('entity-attack',{entity:id,item});const ent=this.entities.get(id);if(!ent||ent.state.species===S.SHADOW_REAPER||ent.state.species===S.VILLAGER||ent.state.species===S.FORTRESS_KEEPER)return [];const s=ent.state;if(pose&&Math.hypot(pose.x-s.x,pose.y-s.y,pose.z-s.z)>5)return [];s.health-=ITEM_REGISTRY[item?.id??'']?.damage??5;s.vy=4;this.addParticle(s.x,s.y+.5,s.z,0xaa6450,5);if(s.health>0)return [];const loot=creatureLoot(s.species);this.removeEntity(id);return loot;}
+  public async attack(id:string,item:ItemDef|null,pose?:{x:number;y:number;z:number}){if(this.world.isRemote)return window.desktop!.online('entity-attack',{entity:id,item});const ent=this.entities.get(id);if(!ent||ent.state.species===S.SHADOW_REAPER||ent.state.species===S.VILLAGER||ent.state.species===S.FORTRESS_KEEPER)return [];const s=ent.state;if(pose&&Math.hypot(pose.x-s.x,pose.y-s.y,pose.z-s.z)>5)return [];s.health-=ITEM_REGISTRY[item?.id??'']?.damage??5;s.vy=4;if(pose){s.uniqueData.fleeFrom={x:pose.x,z:pose.z};s.uniqueData.fleeUntil=s.customTimer+4;}this.addParticle(s.x,s.y+.5,s.z,0xaa6450,5);if(s.health>0)return [];const loot=creatureLoot(s.species);this.removeEntity(id);return loot;}
   public entities: Map<string, { state: EntityState; mesh: EntityMeshGroup }> = new Map();
   public scene: THREE.Scene;
   public world: VoxelWorld;
@@ -85,6 +86,7 @@ export class EntityManager {
       lastInteractionTime: 0
     };
 
+    if(species===S.SLIME){state.uniqueData.color=creatureState(id,species,x,y,z).uniqueData.color;setSlimePalette(mesh,state.uniqueData.color);}
     this.entities.set(id, { state, mesh });
     return id;
   }
@@ -255,14 +257,14 @@ export class EntityManager {
     this.spawnedChunks=keys(saved.spawnedChunks);this.spawnedRiverChunks=keys(saved.spawnedRiverChunks);this.wildlifeSpawnTimer=Number.isFinite(saved.wildlifeSpawnTimer)?saved.wildlifeSpawnTimer:0;
   }
 
-  public networkSnapshot(){return [...this.entities.values()].slice(0,128).map(({state:s})=>({id:s.id,species:s.species,x:s.x,y:s.y,z:s.z,rotationY:s.rotationY,vx:s.vx,vz:s.vz,isTamed:s.isTamed,health:s.health,uniqueData:s.species===S.SLIME?{color:s.uniqueData.color}:{}}));}
+  public networkSnapshot(){return [...this.entities.values()].slice(0,128).map(({state:s})=>({id:s.id,species:s.species,x:s.x,y:s.y,z:s.z,rotationY:s.rotationY,vx:s.vx,vz:s.vz,isTamed:s.isTamed,health:s.health,vy:s.vy,uniqueData:s.species===S.SLIME?{color:s.uniqueData.color}:{}}));}
   public applyNetworkSnapshot(states:any[]){
     const valid=states.filter(s=>s&&typeof s.id==='string'&&s.id.length<80&&Object.values(EntitySpecies).includes(s.species)&&['x','y','z','rotationY','vx','vz','health'].every(k=>Number.isFinite(s[k])));
     const ids=new Set(valid.map(s=>s.id));for(const id of this.entities.keys())if(!ids.has(id))this.removeEntity(id);
     for(const value of valid){let entry=this.entities.get(value.id);if(!entry){const temp=this.spawnEntity(value.species,value.x,value.y,value.z);entry=this.entities.get(temp)!;this.entities.delete(temp);entry.state.id=value.id;this.entities.set(value.id,entry);}Object.assign(entry.state,value);}
   }
   public update(delta: number, playerPos: THREE.Vector3): { playerBounced?: boolean; playerHealed?: boolean } {
-    if(this.world.isRemote){for(const {state,mesh}of this.entities.values()){mesh.position.lerp(new THREE.Vector3(state.x,state.y,state.z),Math.min(1,delta*12));mesh.rotation.y=state.rotationY;EntityModelFactory.animateEntity(mesh,Math.hypot(state.vx,state.vz),delta);}return {};}
+    if(this.world.isRemote){for(const {state,mesh}of this.entities.values()){if(state.species===S.SLIME){setSlimePalette(mesh,state.uniqueData.color??0x80b967);mesh.userData.verticalVelocity=state.vy;}mesh.position.lerp(new THREE.Vector3(state.x,state.y,state.z),Math.min(1,delta*12));mesh.rotation.y=state.rotationY;EntityModelFactory.animateEntity(mesh,Math.hypot(state.vx,state.vz),delta);}return {};}
     for(const [id,state]of this.dormant)if(this.entities.size<120&&this.world.chunks.has(`${Math.floor(state.x/16)},${Math.floor(state.z/16)}`)){const temporary=this.spawnEntity(state.species,state.x,state.y,state.z),entry=this.entities.get(temporary)!;this.entities.delete(temporary);entry.state=state;this.entities.set(id,entry);this.dormant.delete(id);}
     const targets=[{x:playerPos.x,y:playerPos.y,z:playerPos.z},...this.targets()];
     const runtime=this.world.captureRuntime?.(),time=runtime?.timeOfDay??.5,age=(runtime?.environment?.totalDays??1)-1+time;
@@ -285,7 +287,7 @@ export class EntityManager {
     const aiCullDistSq = aiCullDist * aiCullDist;
 
     for (const [id, { state, mesh }] of this.entities.entries()) {
-      if(BETA_CREATURES[state.species]){const loaded=this.world.chunks.has(`${Math.floor(state.x/16)},${Math.floor(state.z/16)}`);if(!loaded){this.dormant.set(id,state);this.removeEntity(id);continue;}if(state.species===S.SLIME&&state.uniqueData.color){const body=mesh.parts.body as THREE.Mesh;if(body)(body.material as THREE.MeshLambertMaterial).color.setHex(state.uniqueData.color);}if(state.species===S.BOAT&&state.uniqueData.rider){const target=state.uniqueData.rider==='@local'?playerPos:targets.find(t=>t.id===state.uniqueData.rider);if(target){state.x=target.x;state.y=target.y-.3;state.z=target.z;state.rotationY=(target as any).yaw??this.localYaw();mesh.position.set(state.x,state.y,state.z);mesh.rotation.y=state.rotationY;EntityModelFactory.animateEntity(mesh,2,delta);continue;}delete state.uniqueData.rider;}const r=tickCreature(state,delta,this.world,targets,this.world.lighting.level(Math.floor(state.x),Math.floor(state.y+1),Math.floor(state.z),time));if(r.remove){if(r.smoke)this.addParticle(state.x,state.y+1,state.z,0x77717f,20,.8);this.removeEntity(id);continue;}if(r.damage)this.onDamage?.(r.damage.id,r.damage.amount);mesh.position.set(state.x,state.y,state.z);mesh.rotation.y=state.rotationY;EntityModelFactory.animateEntity(mesh,Math.hypot(state.vx,state.vz),delta);continue;}
+      if(BETA_CREATURES[state.species]){const loaded=this.world.chunks.has(`${Math.floor(state.x/16)},${Math.floor(state.z/16)}`);if(!loaded){this.dormant.set(id,state);this.removeEntity(id);continue;}if(state.species===S.SLIME&&mesh.userData.slimeColor!==state.uniqueData.color)setSlimePalette(mesh,state.uniqueData.color??0x80b967);if(state.species===S.BOAT&&state.uniqueData.rider){const target=state.uniqueData.rider==='@local'?playerPos:targets.find(t=>t.id===state.uniqueData.rider);if(target){state.x=target.x;state.y=target.y-.3;state.z=target.z;state.rotationY=(target as any).yaw??this.localYaw();mesh.position.set(state.x,state.y,state.z);mesh.rotation.y=state.rotationY;EntityModelFactory.animateEntity(mesh,2,delta);continue;}delete state.uniqueData.rider;}const r=tickCreature(state,delta,this.world,targets,this.world.lighting.level(Math.floor(state.x),Math.floor(state.y+1),Math.floor(state.z),time));if(r.remove){if(r.smoke)this.addParticle(state.x,state.y+1,state.z,0x77717f,20,.8);this.removeEntity(id);continue;}if(r.damage)this.onDamage?.(r.damage.id,r.damage.amount);mesh.position.set(state.x,state.y,state.z);mesh.rotation.y=state.rotationY;mesh.userData.verticalVelocity=state.vy;EntityModelFactory.animateEntity(mesh,Math.hypot(state.vx,state.vz),delta);continue;}
       // Distance to player
       const dx = playerPos.x - state.x;
       const dy = playerPos.y - state.y;

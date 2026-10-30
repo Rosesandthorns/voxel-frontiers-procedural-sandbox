@@ -1,0 +1,1 @@
+const {app,BrowserWindow}=require('electron');app.whenReady().then(()=>{const window=new BrowserWindow({width:1440,height:950,show:true,webPreferences:{contextIsolation:true,nodeIntegration:false}});window.loadFile(process.env.BIOME_GALLERY_HTML);});app.on('window-all-closed',()=>app.quit());

@@ -534,7 +534,7 @@ export function GameSession({ onExit }: { onExit: () => void }) {
 
     multiplayer: initialSave?.multiplayer,
 
-      generationVersion: 5,
+      generationVersion: 6,
 
       chunkVersions: world.chunkVersions,
 

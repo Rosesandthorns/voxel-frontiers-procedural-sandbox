@@ -52,7 +52,7 @@ export function WorldMenu({ onSelect }: { onSelect: (id: string) => void }) {
 
     setActiveWorld(id);
 
-    if (!saveGame({ name: name.trim(), seed: numericSeed, createdAt: Date.now(), generationVersion: 5, hotbar: Array.from({length:9}, () => ({item:null,count:0})), inventory: createDefaultBackpack(), health:20, stamina:100, coords:{x:8.5,y:0,z:8.5}, settings })) { setError('Could not create this world. Check disk space and folder permissions.'); return; }
+    if (!saveGame({ name: name.trim(), seed: numericSeed, createdAt: Date.now(), generationVersion: 6, hotbar: Array.from({length:9}, () => ({item:null,count:0})), inventory: createDefaultBackpack(), health:20, stamina:100, coords:{x:8.5,y:0,z:8.5}, settings })) { setError('Could not create this world. Check disk space and folder permissions.'); return; }
 
     onSelect(id);
 
