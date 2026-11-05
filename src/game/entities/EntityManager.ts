@@ -34,7 +34,6 @@ export class EntityManager {
   public scene: THREE.Scene;
   public world: VoxelWorld;
   public particles: FloatingParticle[] = [];
-  public mountedEntityId: string | null = null;
   public onNotification?: (title: string, message: string) => void;
   public onEntityTamed?: (species: string) => void;
 
@@ -42,9 +41,6 @@ export class EntityManager {
   private spawnedChunks: Set<string> = new Set();
   private spawnedRiverChunks: Set<string> = new Set();
   private wildlifeSpawnTimer: number = 0;
-
-  // Visual laser beam for Ancient Sentry
-  private laserLines: THREE.Line[] = [];
 
   constructor(scene: THREE.Scene, world: VoxelWorld) {
     this.scene = scene;
@@ -73,13 +69,13 @@ export class EntityManager {
       vz: 0,
       rotationY: Math.random() * Math.PI * 2,
       pitch: 0,
-      health: species === EntitySpecies.PEBBLE_GOLEM ? 30 : species === EntitySpecies.SKY_RAY ? 40 : 15,
-      maxHealth: species === EntitySpecies.PEBBLE_GOLEM ? 30 : species === EntitySpecies.SKY_RAY ? 40 : 15,
-      isHostile: species === EntitySpecies.VOID_STALKER || species === EntitySpecies.MIMIC_CHEST,
+      health: 15,
+      maxHealth: 15,
+      isHostile: false,
       isTamed: false,
       isRidden: false,
-      isBurrowed: species === EntitySpecies.DUNE_CRAB,
-      isCamouflaged: species === EntitySpecies.PEBBLE_GOLEM || species === EntitySpecies.MIMIC_CHEST,
+      isBurrowed: false,
+      isCamouflaged: false,
       customTimer: 0,
       targetPos: null,
       uniqueData: {},
@@ -97,9 +93,6 @@ export class EntityManager {
       ent.mesh.traverse(node=>{if(node instanceof THREE.Mesh){node.geometry.dispose();if(BETA_CREATURES[ent.state.species])for(const material of Array.isArray(node.material)?node.material:[node.material])material.dispose();}});
       this.scene.remove(ent.mesh);
       this.entities.delete(id);
-      if (this.mountedEntityId === id) {
-        this.mountedEntityId = null;
-      }
     }
   }
 
@@ -153,89 +146,6 @@ export class EntityManager {
       return { success: true, message: 'Cardinal whistled a melodious forest song and fluttered upward!' };
     }
 
-    // 1. Glimmer Fox Scenting
-    if (state.species === EntitySpecies.GLIMMER_FOX) {
-      soundManager.playEntityInteraction('fox');
-      this.addParticle(state.x, state.y + 0.5, state.z, 0x00e5ff, 12, 0.8);
-      state.isTamed = true;
-      this.onEntityTamed?.(state.species);
-
-      // Finds treasure or digs
-      const searchRadius = 15;
-      let foundX = state.x + (Math.random() - 0.5) * searchRadius;
-      let foundZ = state.z + (Math.random() - 0.5) * searchRadius;
-      state.targetPos = { x: foundX, y: state.y, z: foundZ };
-      state.uniqueData.isScenting = true;
-      return { success: true, message: 'Glimmer Fox picked up the scent of buried ore!' };
-    }
-
-    // 2. Sky Ray Mount
-    if (state.species === EntitySpecies.SKY_RAY) {
-      if (this.mountedEntityId === id) {
-        // Dismount
-        this.mountedEntityId = null;
-        state.isRidden = false;
-        return { success: true, message: 'Dismounted Sky Ray' };
-      } else {
-        // Mount
-        this.mountedEntityId = id;
-        state.isRidden = true;
-        state.isTamed = true;
-        this.onEntityTamed?.(state.species);
-        soundManager.playChime(440);
-        return { success: true, message: 'Mounted Sky Ray! Soar the skies!', mounted: true };
-      }
-    }
-
-    // 3. Pebble Golem Taming with Ore
-    if (state.species === EntitySpecies.PEBBLE_GOLEM) {
-      state.isCamouflaged = false;
-      if (playerItem?.name.includes('Ore') || playerItem?.name.includes('Iron') || playerItem?.name.includes('Stone')) {
-        state.isTamed = true;
-        state.isHostile = false;
-        this.addParticle(state.x, state.y + 1, state.z, 0x76ff03, 15, 0.6);
-        soundManager.playEntityInteraction('growl');
-        this.onEntityTamed?.(state.species);
-        return { success: true, message: 'Pebble Golem fed and tamed! It now guards you.' };
-      } else {
-        soundManager.playEntityInteraction('growl');
-        return { success: true, message: 'Pebble Golem awakened from stone sleep!' };
-      }
-    }
-
-    // 4. Solar Sprite Harvest / Heal
-    if (state.species === EntitySpecies.SOLAR_SPRITE) {
-      soundManager.playEntityInteraction('sprite');
-      this.addParticle(state.x, state.y + 0.5, state.z, 0xffeb3b, 16, 1.0);
-      return { success: true, message: 'Solar Sprite shared warm solar radiance (+Health)', healed: true };
-    }
-
-    // 5. Mimic Chest Pacify / Open
-    if (state.species === EntitySpecies.MIMIC_CHEST) {
-      if (playerItem?.name.includes('Gold')) {
-        state.isTamed = true;
-        state.isHostile = false;
-        soundManager.playEntityInteraction('mimic');
-        this.addParticle(state.x, state.y + 0.6, state.z, 0xffd54f, 20, 1.2);
-        return { success: true, message: 'Mimic Chest pacified with Gold! It spat out relic loot!' };
-      } else {
-        state.isCamouflaged = false;
-        soundManager.playEntityInteraction('mimic');
-        return { success: true, message: 'The chest sprouted teeth! It was a Mimic!' };
-      }
-    }
-
-    // 6. Ancient Sentry Repair
-    if (state.species === EntitySpecies.ANCIENT_SENTRY) {
-      soundManager.playEntityInteraction('robot');
-      if (playerItem?.name.includes('Iron') || playerItem?.name.includes('Gold')) {
-        state.isTamed = true;
-        state.isHostile = false;
-        this.addParticle(state.x, state.y + 1, state.z, 0x00e5ff, 18, 0.9);
-        return { success: true, message: 'Ancient Sentry repaired! Laser defense online.' };
-      }
-    }
-
     // Default friendly interaction
     soundManager.playEntityInteraction('growl');
     this.addParticle(state.x, state.y + 0.5, state.z, 0xffffff, 8, 0.4);
@@ -287,7 +197,7 @@ export class EntityManager {
     const aiCullDistSq = aiCullDist * aiCullDist;
 
     for (const [id, { state, mesh }] of this.entities.entries()) {
-      if(BETA_CREATURES[state.species]){const loaded=this.world.chunks.has(`${Math.floor(state.x/16)},${Math.floor(state.z/16)}`);if(!loaded){this.dormant.set(id,state);this.removeEntity(id);continue;}if(state.species===S.SLIME&&mesh.userData.slimeColor!==state.uniqueData.color)setSlimePalette(mesh,state.uniqueData.color??0x80b967);if(state.species===S.BOAT&&state.uniqueData.rider){const target=state.uniqueData.rider==='@local'?playerPos:targets.find(t=>t.id===state.uniqueData.rider);if(target){state.x=target.x;state.y=target.y-.3;state.z=target.z;state.rotationY=(target as any).yaw??this.localYaw();mesh.position.set(state.x,state.y,state.z);mesh.rotation.y=state.rotationY;EntityModelFactory.animateEntity(mesh,2,delta);continue;}delete state.uniqueData.rider;}const r=tickCreature(state,delta,this.world,targets,this.world.lighting.level(Math.floor(state.x),Math.floor(state.y+1),Math.floor(state.z),time));if(r.remove){if(r.smoke)this.addParticle(state.x,state.y+1,state.z,0x77717f,20,.8);this.removeEntity(id);continue;}if(r.damage)this.onDamage?.(r.damage.id,r.damage.amount);mesh.position.set(state.x,state.y,state.z);mesh.rotation.y=state.rotationY;mesh.userData.verticalVelocity=state.vy;mesh.userData.isFlying=!!state.uniqueData.isFlying;EntityModelFactory.animateEntity(mesh,Math.hypot(state.vx,state.vz),delta);continue;}
+      if(BETA_CREATURES[state.species]){const loaded=this.world.chunks.has(`${Math.floor(state.x/16)},${Math.floor(state.z/16)}`);if(!loaded){this.dormant.set(id,state);this.removeEntity(id);continue;}if(state.species===S.SLIME&&mesh.userData.slimeColor!==state.uniqueData.color)setSlimePalette(mesh,state.uniqueData.color??0x80b967);if(state.species===S.BOAT&&state.uniqueData.rider){const target=state.uniqueData.rider==='@local'?playerPos:targets.find(t=>t.id===state.uniqueData.rider);if(target){state.x=target.x;state.y=target.y-.3;state.z=target.z;state.rotationY=(target as any).yaw??this.localYaw();mesh.position.set(state.x,state.y,state.z);mesh.rotation.y=state.rotationY;EntityModelFactory.animateEntity(mesh,2,delta);continue;}delete state.uniqueData.rider;}const r=tickCreature(state,delta,this.world,targets,this.world.lighting.level(Math.floor(state.x),Math.floor(state.y+1),Math.floor(state.z),time));if(r.remove){if(r.smoke)this.addParticle(state.x,state.y+1,state.z,0x77717f,20,.8);this.removeEntity(id);continue;}if(r.damage)this.onDamage?.(r.damage.id,r.damage.amount);mesh.position.set(state.x,state.y,state.z);mesh.rotation.y=state.rotationY;mesh.userData.verticalVelocity=state.vy;mesh.userData.isFlying=!!state.uniqueData.isFlying;mesh.userData.grazing=!!state.uniqueData.grazing;EntityModelFactory.animateEntity(mesh,Math.hypot(state.vx,state.vz),delta);continue;}
       // Distance to player
       const dx = playerPos.x - state.x;
       const dy = playerPos.y - state.y;
@@ -310,71 +220,6 @@ export class EntityManager {
       state.customTimer += delta;
       const distToPlayer = Math.sqrt(distSq);
 
-      // 1. PUFF SPORE Trampoline Mechanic
-      if (state.species === EntitySpecies.PUFF_SPORE) {
-        if (distToPlayer < 1.1 && Math.abs(playerPos.y - (state.y + 1.2)) < 0.6) {
-          // Player hopped on top of the Puff Spore!
-          result.playerBounced = true;
-          soundManager.playSuperBounce();
-          this.addParticle(state.x, state.y + 1.0, state.z, 0x00e5ff, 20, 1.2);
-          // Spore bounces too
-          state.vy = 8.0;
-        }
-      }
-
-      // 2. SOLAR SPRITE Healing Radius
-      if (state.species === EntitySpecies.SOLAR_SPRITE) {
-        if (distToPlayer < 4.0 && Math.sin(state.customTimer * 2.0) > 0.98) {
-          result.playerHealed = true;
-          this.addParticle(state.x, state.y + 0.6, state.z, 0x76ff03, 3, 0.4);
-        }
-      }
-
-      // 3. DUNE CRAB Unburrow on approach
-      if (state.species === EntitySpecies.DUNE_CRAB && state.isBurrowed) {
-        if (distToPlayer < 4.5) {
-          state.isBurrowed = false;
-          state.vy = 4.5;
-          soundManager.playStep('sand');
-          this.addParticle(state.x, state.y, state.z, 0xe0c068, 15, 0.8);
-        }
-      }
-
-      // 4. VOID STALKER Sun / Torch Fleeing
-      if (state.species === EntitySpecies.VOID_STALKER) {
-        if (this.world.getBlock(Math.floor(state.x), Math.floor(state.y + 1), Math.floor(state.z)) === 22) {
-          // Near lantern! Flee away
-          state.vx -= dx * 0.5 * delta;
-          state.vz -= dz * 0.5 * delta;
-        }
-      }
-
-      // 5. MAGMA SALAMANDER Walks on Water -> Creates Cobblestone
-      if (state.species === EntitySpecies.MAGMA_SALAMANDER) {
-        const belowBlock = this.world.getBlock(Math.floor(state.x), Math.floor(state.y - 0.2), Math.floor(state.z));
-        if (belowBlock === 23) {
-          // Water -> Solidify to Cobble
-          this.world.setBlock(Math.floor(state.x), Math.floor(state.y - 0.2), Math.floor(state.z), 4);
-          soundManager.playStep('stone');
-          this.addParticle(state.x, state.y, state.z, 0xd84315, 6, 0.4);
-        }
-      }
-
-      // 6. SKY RAY Ridden / Flight
-      if (state.species === EntitySpecies.SKY_RAY) {
-        if (this.mountedEntityId === id) {
-          // Align with player position
-          state.x = playerPos.x;
-          state.y = playerPos.y - 0.7;
-          state.z = playerPos.z;
-        } else {
-          // Gentle soaring path high in the sky
-          state.vx = Math.sin(state.customTimer * 0.4) * 2.5;
-          state.vz = Math.cos(state.customTimer * 0.4) * 2.5;
-          state.y += Math.sin(state.customTimer * 0.8) * 0.05;
-        }
-      }
-
       // Standard AI Motion (Wander or Follow or Flee)
       if (!state.isRidden && !state.isBurrowed) {
         // Water check for aquatic creatures (BlockType.WATER = 23)
@@ -383,10 +228,6 @@ export class EntityManager {
 
         // Gravity for ground creatures / flight check
         const isFlying =
-          state.species === EntitySpecies.SOLAR_SPRITE ||
-          state.species === EntitySpecies.SKY_RAY ||
-          state.species === EntitySpecies.ANCIENT_SENTRY ||
-          state.species === EntitySpecies.PUFF_SPORE ||
           (state.species === EntitySpecies.CARDINAL && Boolean(state.uniqueData.isFlying)) ||
           inWater;
 
@@ -420,12 +261,12 @@ export class EntityManager {
             state.uniqueData.swimTimer -= delta;
 
             if (state.uniqueData.swimTimer <= 0) {
-              state.uniqueData.swimTimer = 2.0 + Math.random() * 4.0;
+              state.uniqueData.swimTimer = 3.0 + Math.random() * 4.0;
               state.uniqueData.swimSpeed = 1.3 + Math.random() * 0.9;
               state.rotationY += (Math.random() - 0.5) * 1.2;
             }
 
-            // Schooling alignment with other nearby Salmon
+            // Schooling alignment with other nearby Salmon (loose: drift, don't lock step)
             for (const [otherId, otherEnt] of this.entities.entries()) {
               if (otherId !== id && otherEnt.state.species === EntitySpecies.SALMON) {
                 const odx = otherEnt.state.x - state.x;
@@ -433,7 +274,7 @@ export class EntityManager {
                 const odistSq = odx * odx + odz * odz;
                 if (odistSq < 36 && odistSq > 0.8) {
                   // Steer slightly towards neighbor's heading
-                  state.rotationY += (otherEnt.state.rotationY - state.rotationY) * 0.05;
+                  state.rotationY += (otherEnt.state.rotationY - state.rotationY) * 0.03;
                   break;
                 }
               }
@@ -489,8 +330,8 @@ export class EntityManager {
               }
 
               // Occasional pause to sniff ground / tilt head curiously
-              if (Math.random() < 0.28) {
-                state.uniqueData.pauseTimer = 1.8 + Math.random() * 2.4;
+              if (Math.random() < 0.35) {
+                state.uniqueData.pauseTimer = 2.2 + Math.random() * 2.2;
               } else {
                 state.vx = Math.sin(state.rotationY) * trotSpeed;
                 state.vz = Math.cos(state.rotationY) * trotSpeed;
@@ -538,7 +379,7 @@ export class EntityManager {
             if (state.uniqueData.flightTimer <= 0) {
               // Land and transition to perched
               state.uniqueData.isFlying = false;
-              state.uniqueData.perchTimer = 5.0 + Math.random() * 7.0;
+              state.uniqueData.perchTimer = 6.0 + Math.random() * 8.0;
               state.vx = 0;
               state.vz = 0;
             }
@@ -553,10 +394,10 @@ export class EntityManager {
               state.vy = 4.8;
               state.rotationY = Math.atan2(state.x - playerPos.x, state.z - playerPos.z);
             } else if (state.uniqueData.perchTimer <= 0) {
-              // Periodic choice: take flight or small hop
-              if (Math.random() < 0.42) {
+              // Periodic choice: take flight or small hop (perch longer, fly a little less often)
+              if (Math.random() < 0.36) {
                 state.uniqueData.isFlying = true;
-                state.uniqueData.flightTimer = 3.5 + Math.random() * 4.0;
+                state.uniqueData.flightTimer = 3.5 + Math.random() * 3.5;
                 state.vy = 4.2;
                 state.rotationY += (Math.random() - 0.5) * 2.0;
               } else {
@@ -576,12 +417,21 @@ export class EntityManager {
             soundManager.playCardinalChirp();
           }
         } else {
-          // Standard Wander AI for other creatures
-          if (Math.random() < 0.02) {
-            state.rotationY += (Math.random() - 0.5) * 1.5;
-            const speed = state.species === EntitySpecies.GLIMMER_FOX ? 3.0 : 1.2;
-            state.vx = Math.sin(state.rotationY) * speed;
-            state.vz = Math.cos(state.rotationY) * speed;
+          // Standard Wander AI for other creatures, with idle pauses
+          if (!state.uniqueData.pauseTimer) state.uniqueData.pauseTimer = 0;
+          if (state.uniqueData.pauseTimer > 0) {
+            state.uniqueData.pauseTimer -= delta;
+            state.vx = 0;
+            state.vz = 0;
+          } else if (Math.random() < 0.02) {
+            if (Math.random() < 0.25) {
+              state.uniqueData.pauseTimer = 1.0 + Math.random() * 2.0;
+            } else {
+              state.rotationY += (Math.random() - 0.5) * 1.5;
+              const speed = 1.2;
+              state.vx = Math.sin(state.rotationY) * speed;
+              state.vz = Math.cos(state.rotationY) * speed;
+            }
           }
         }
 

@@ -20,16 +20,6 @@ export class EntityInspector {
         return '[Right Click] Pet & Befriend Redwood Fox';
       case EntitySpecies.CARDINAL:
         return '[Right Click] Listen to Cardinal Song';
-      case EntitySpecies.GLIMMER_FOX:
-        return '[Right Click] Feed Star-Berries to Scent Treasure';
-      case EntitySpecies.SKY_RAY:
-        return '[Right Click / Grapple] Mount & Soar Sky';
-      case EntitySpecies.PUFF_SPORE:
-        return 'Jump on cap for Super Trampoline Bounce!';
-      case EntitySpecies.PEBBLE_GOLEM:
-        return '[Right Click] Feed Iron Ore to Tame';
-      case EntitySpecies.MIMIC_CHEST:
-        return '[Right Click] Feed Gold to Pacify for Triple Loot';
       default:
         return '[Right Click] Interact';
     }

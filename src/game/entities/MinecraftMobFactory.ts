@@ -760,6 +760,20 @@ export function buildRedwoodFoxModel(g: EntityMeshGroup) {
   snout.position.set(0, -0.06, 0.28);
   head.add(snout);
 
+  // Nose
+  const nose = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.07, 0.05), mats.ear);
+  nose.position.set(0, -0.04, 0.40);
+  head.add(nose);
+
+  // Eyes (dark amber)
+  const eyeGeo = new THREE.BoxGeometry(0.06, 0.08, 0.04);
+  const eyeMat = new THREE.MeshLambertMaterial({color:0x2b1a12});
+  const eyeL = new THREE.Mesh(eyeGeo, eyeMat);
+  eyeL.position.set(-0.11, 0.05, 0.19);
+  const eyeR = new THREE.Mesh(eyeGeo, eyeMat);
+  eyeR.position.set(0.11, 0.05, 0.19);
+  head.add(eyeL, eyeR);
+
   // Ears
   const earGeo = new THREE.BoxGeometry(0.12, 0.20, 0.08);
   const earL = new THREE.Mesh(earGeo, mats.ear);
@@ -767,6 +781,11 @@ export function buildRedwoodFoxModel(g: EntityMeshGroup) {
   const earR = new THREE.Mesh(earGeo, mats.ear);
   earR.position.set(0.13, 0.22, -0.04);
   head.add(earL, earR);
+
+  // White chest ruff
+  const chest = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.22, 0.06), mats.snout);
+  chest.position.set(0, -0.08, 0.42);
+  head.add(chest);
 
   g.add(head);
   g.parts.head = head;
@@ -779,6 +798,12 @@ export function buildRedwoodFoxModel(g: EntityMeshGroup) {
   tailMesh.position.set(0, -0.04, -0.26);
   tailMesh.rotation.x = -0.3;
   tail.add(tailMesh);
+
+  // White tail tip
+  const tailTip = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.2, 0.18), mats.snout);
+  tailTip.position.set(0, 0.08, -0.5);
+  tailTip.rotation.x = -0.3;
+  tail.add(tailTip);
 
   g.add(tail);
   g.parts.tail = tail;
@@ -833,8 +858,23 @@ export function buildCardinalModel(g: EntityMeshGroup) {
   beak.position.set(0, -0.04, 0.16);
   head.add(beak);
 
+  // Glossy black eyes, set into the painted mask
+  const eyeMat = new THREE.MeshLambertMaterial({color:0x141210});
+  const eyeGeo = new THREE.BoxGeometry(0.05, 0.06, 0.03);
+  const eyeL = new THREE.Mesh(eyeGeo, eyeMat);
+  eyeL.position.set(-0.07, 0.05, 0.13);
+  const eyeR = new THREE.Mesh(eyeGeo, eyeMat);
+  eyeR.position.set(0.07, 0.05, 0.13);
+  head.add(eyeL, eyeR);
+
   g.add(head);
   g.parts.head = head;
+
+  // Pale breast patch
+  const breast = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.2, 0.04), new THREE.MeshLambertMaterial({color:0xf3d9d9}));
+  breast.position.set(0, 0.28, 0.22);
+  g.add(breast);
+  g.parts.breast = breast;
 
   // Wings (attached with shoulder pivots at top edge of body)
   const wingGeo = new THREE.BoxGeometry(0.06, 0.22, 0.36);
@@ -893,23 +933,27 @@ export function animateRedwoodFox(g: EntityMeshGroup, speed: number, delta: numb
     g.parts.tail.rotation.x = -0.28 + Math.sin(t * 2.0) * 0.08;
   }
 
-  // Minecraft-style fox curious head tilt when stopped!
+  // Minecraft-style fox curious head tilt when stopped, plus a sniff dip!
   if (g.parts.head) {
     if (speed < 0.25) {
       const tiltPhase = (t * 0.6) % 9;
       if (tiltPhase < 3.0) {
         g.parts.head.rotation.z = 0.32; // tilt right
         g.parts.head.rotation.y = 0.18;
+        g.parts.head.rotation.x = 0.3; // sniff down at the ground
       } else if (tiltPhase < 5.5) {
         g.parts.head.rotation.z = -0.28; // tilt left
         g.parts.head.rotation.y = -0.15;
+        g.parts.head.rotation.x = 0;
       } else {
         g.parts.head.rotation.z = 0;
         g.parts.head.rotation.y = Math.sin(t * 0.8) * 0.12;
+        g.parts.head.rotation.x = 0;
       }
     } else {
       g.parts.head.rotation.z = 0;
       g.parts.head.rotation.y = 0;
+      g.parts.head.rotation.x = 0;
     }
   }
 }
@@ -971,18 +1015,27 @@ export function animateCardinal(g: EntityMeshGroup, speed: number, delta: number
 export function buildSalmonModel(g: EntityMeshGroup) {
   const mats = getSalmonMaterials();
 
-  // 1. Torso / Main Body
-  const body = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.24, 0.44), mats.body);
-  body.position.set(0, 0.16, 0);
+  // 1. Torso / Main Body — streamlined: a thick mid-body, not one flat slab.
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.20, 0.26), mats.body);
+  body.position.set(0, 0.16, -0.02);
   g.add(body);
   g.parts.body = body;
 
-  // 2. Head Pivot Group
+  // Silver belly underside
+  const belly = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.05, 0.30), new THREE.MeshLambertMaterial({color:0xd8d2c4}));
+  belly.position.set(0, 0.055, -0.02);
+  g.add(belly);
+  g.parts.belly = belly;
+
+  // 2. Head Pivot Group — smaller, tapered head with a snout.
   const headGroup = new THREE.Group();
   headGroup.position.set(0, 0.16, 0.22);
-  const headMesh = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.20, 0.16), mats.head);
-  headMesh.position.set(0, 0, 0.08);
+  const headMesh = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.17, 0.14), mats.head);
+  headMesh.position.set(0, 0, 0.06);
   headGroup.add(headMesh);
+  const snout = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.11, 0.08), mats.head);
+  snout.position.set(0, -0.01, 0.16);
+  headGroup.add(snout);
   g.add(headGroup);
   g.parts.head = headGroup;
 
@@ -991,34 +1044,38 @@ export function buildSalmonModel(g: EntityMeshGroup) {
   tailGroup.position.set(0, 0.16, -0.22);
 
   // Rear body taper
-  const tailBase = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.18, 0.20), mats.body);
-  tailBase.position.set(0, 0, -0.10);
+  const tailBase = new THREE.Mesh(new THREE.BoxGeometry(0.10, 0.15, 0.18), mats.body);
+  tailBase.position.set(0, 0, -0.09);
   tailGroup.add(tailBase);
 
-  // Caudal Tail Fin (distinctive vertical fish fin)
-  const caudalFin = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.28, 0.22), mats.tailFin);
-  caudalFin.position.set(0, 0, -0.24);
-  tailGroup.add(caudalFin);
+  // Forked Caudal Tail Fin — two lobes angled apart, not one flat slab.
+  const caudalTop = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.18, 0.16), mats.tailFin);
+  caudalTop.position.set(0, 0.09, -0.22);
+  caudalTop.rotation.x = -0.4;
+  const caudalLow = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.18, 0.16), mats.tailFin);
+  caudalLow.position.set(0, -0.09, -0.22);
+  caudalLow.rotation.x = 0.4;
+  tailGroup.add(caudalTop, caudalLow);
 
   g.add(tailGroup);
   g.parts.tail = tailGroup;
 
-  // 4. Dorsal Fin
-  const dorsalFin = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.12, 0.18), mats.dorsalFin);
-  dorsalFin.position.set(0, 0.32, -0.06);
-  dorsalFin.rotation.x = -0.25;
+  // 4. Dorsal Fin — thin and swept back.
+  const dorsalFin = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.10, 0.22), mats.dorsalFin);
+  dorsalFin.position.set(0, 0.30, -0.08);
+  dorsalFin.rotation.x = -0.35;
   g.add(dorsalFin);
   g.parts.dorsalFin = dorsalFin;
 
-  // 5. Pectoral Fins (Left & Right)
-  const finGeo = new THREE.BoxGeometry(0.02, 0.08, 0.14);
+  // 5. Pectoral Fins (Left & Right) — smaller and thinner.
+  const finGeo = new THREE.BoxGeometry(0.015, 0.06, 0.11);
   const finL = new THREE.Mesh(finGeo, mats.pectoralFin);
-  finL.position.set(-0.11, 0.10, 0.10);
+  finL.position.set(-0.09, 0.10, 0.08);
   finL.rotation.z = 0.42;
   finL.rotation.y = 0.25;
 
   const finR = new THREE.Mesh(finGeo, mats.pectoralFin);
-  finR.position.set(0.11, 0.10, 0.10);
+  finR.position.set(0.09, 0.10, 0.08);
   finR.rotation.z = -0.42;
   finR.rotation.y = -0.25;
 

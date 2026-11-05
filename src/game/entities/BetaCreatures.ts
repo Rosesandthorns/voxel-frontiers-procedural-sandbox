@@ -25,7 +25,7 @@ export const BETA_CREATURES:Partial<Record<S,CreatureDef>>={
  [S.BOAT]:{color:0x9b7549,size:[1.3,.45,1.8],habitat:'Water',speed:5,aquatic:true},
 };
 export function creatureState(id:string,species:S,x:number,y:number,z:number):EntityState{return {id,species,x,y,z,vx:0,vy:0,vz:0,rotationY:0,pitch:0,health:species===S.SLIME?12:20,maxHealth:species===S.SLIME?12:20,isHostile:!!BETA_CREATURES[species]?.hostile,isTamed:false,isRidden:false,customTimer:0,targetPos:null,uniqueData:species===S.SLIME?{color:[0x80b967,0x738fb7,0xb885af,0xcab36c][Math.floor(structureHash(Math.floor(x),Math.floor(z),13)*4)]}:{},lastInteractionTime:0};}
-const legacyFood:Partial<Record<S,{meat:string;hide?:boolean}>>={[S.REDWOOD_FOX]:{meat:'fox',hide:true},[S.GLIMMER_FOX]:{meat:'fox',hide:true},[S.CARDINAL]:{meat:'cardinal'},[S.SALMON]:{meat:'salmon'},[S.DUNE_CRAB]:{meat:'crab'},[S.MAGMA_SALAMANDER]:{meat:'salamander'},[S.SKY_RAY]:{meat:'ray'},[S.CRYSTAL_BASILISK]:{meat:'basilisk',hide:true}};
+const legacyFood:Partial<Record<S,{meat:string;hide?:boolean}>>={[S.REDWOOD_FOX]:{meat:'fox',hide:true},[S.CARDINAL]:{meat:'cardinal'},[S.SALMON]:{meat:'salmon'}};
 export const CREATURE_FOOD:Record<string,ItemDef>={};
 for(const def of [...Object.values(BETA_CREATURES),...Object.values(legacyFood)])if(def.meat){const meat=def.meat,label=meat.replaceAll('_',' ');for(const cooked of [false,true]){const id=(cooked?'cooked_':'raw_')+meat;CREATURE_FOOD[id]={id,name:(cooked?'Cooked ':'Raw ')+label,type:'food',maxStack:64,description:cooked?'Cooked meat. Eat before it spoils.':'Cook in a furnace or dry into jerky.',nutrition:cooked?35:10,shelfLifeDays:cooked?5:2,icon:'data:image/svg+xml,'+encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path fill="${cooked?'#805239':'#b36a65'}" d="M2 5h3V3h7v2h2v7h-3v2H4v-2H2z"/><path fill="#e0c4a0" d="M9 5h3v2H9z"/></svg>`) };}}
 export function creatureLoot(species:S):ItemDef[]{if(species===S.BOAT)return [{id:'wooden_boat',name:'Wooden Boat',type:'utility',maxStack:1,icon:'',description:'Place on water.'}];const def=BETA_CREATURES[species]??legacyFood[species];return def?.meat?[CREATURE_FOOD['raw_'+def.meat],...(def.hide?[{id:'raw_hide',name:'Raw Hide',type:'utility' as const,maxStack:64,description:'Dry on a drying rack to make leather.',icon:''}]:[])]:[];}
@@ -47,20 +47,30 @@ export function betaSpawns(world:CreatureReader,generator:WorldGenerator,cx:numb
  return result;
 }
 export function tickCreature(s:EntityState,delta:number,world:CreatureReader,targets:CreatureTarget[],light:number):{remove?:boolean;damage?:{id?:string;amount:number};smoke?:boolean}{
+ // Behaviour state kept in s.uniqueData (all numbers/booleans, save-safe):
+ // heading/turnAt/restUntil — wander rhythm; grazing/grazeUntil — Cow/Sheep/Pig
+ // head-down eating while resting; fleeUntil/fleeFrom — flee direction;
+ // schoolHeading/schoolAt — loose fish-school heading; hopAt/hopPauseUntil —
+ // slime hop cycle (hop, then a short pause); flightAt/landAt/isFlying — birds.
  const def=BETA_CREATURES[s.species];if(!def)return {};const dt=Math.min(.1,delta);s.customTimer+=dt;
  const floor=(x:number,y:number,z:number)=>world.getBlock(Math.floor(x),Math.floor(y),Math.floor(z));
  if(s.species===S.SHADOW_REAPER&&light>0)return {remove:true,smoke:true};
  let target=targets[0],distance=Infinity;for(const p of targets){const d=Math.hypot(p.x-s.x,p.y-s.y,p.z-s.z);if(d<distance){target=p;distance=d;}}
  let damage: {id?:string;amount:number}|undefined;
  let desired=s.uniqueData.heading??s.rotationY;
+ const grazer=s.species===S.COW||s.species===S.PIG||s.species===S.SHEEP;
+ if(s.uniqueData.grazing&&s.customTimer>(s.uniqueData.grazeUntil??0))s.uniqueData.grazing=false;
+ // Hostile chase is steady: lock onto the target, no random wandering.
  if(def.hostile&&target&&distance<24){desired=Math.atan2(target.x-s.x,target.z-s.z);if(distance<1.3&&s.customTimer>(s.uniqueData.attackAt??0)&&clearSight(world,{x:s.x,y:s.y+.6,z:s.z},{x:target.x,y:target.y+.6,z:target.z})){s.uniqueData.attackAt=s.customTimer+1.2;damage={id:target.id,amount:s.species===S.SHADOW_REAPER?4:2};}}
- else if(s.customTimer>(s.uniqueData.turnAt??0)){s.uniqueData.turnAt=s.customTimer+2+structureHash(Math.floor(s.x),Math.floor(s.z),s.id.length)*4;desired+=(structureHash(Math.floor(s.x*10),Math.floor(s.z*10),Math.floor(s.customTimer))-0.5)*2.2;if(!def.hostile&&structureHash(Math.floor(s.customTimer),Math.floor(s.x),s.id.length)<.35)s.uniqueData.restUntil=s.customTimer+1.5+structureHash(Math.floor(s.z),Math.floor(s.x),4)*2;}
- const fleeing=!def.hostile&&s.species!==S.BOAT&&s.customTimer<(s.uniqueData.fleeUntil??0)&&s.uniqueData.fleeFrom;if(fleeing)desired=Math.atan2(s.x-s.uniqueData.fleeFrom.x,s.z-s.uniqueData.fleeFrom.z);
+ else if(s.customTimer>(s.uniqueData.turnAt??0)){s.uniqueData.turnAt=s.customTimer+2+structureHash(Math.floor(s.x),Math.floor(s.z),s.id.length)*4;desired+=(structureHash(Math.floor(s.x*10),Math.floor(s.z*10),Math.floor(s.customTimer))-0.5)*2.2;if(!def.hostile&&structureHash(Math.floor(s.customTimer),Math.floor(s.x),s.id.length)<.35){const restFor=grazer?2.5+structureHash(Math.floor(s.z),Math.floor(s.x),4)*2.5:1.5+structureHash(Math.floor(s.z),Math.floor(s.x),4)*2;s.uniqueData.restUntil=s.customTimer+restFor;if(grazer){s.uniqueData.grazing=true;s.uniqueData.grazeUntil=s.uniqueData.restUntil;}else desired+=(structureHash(Math.floor(s.z),Math.floor(s.x),9)-0.5)*1.2;}}
+ const fleeing=!def.hostile&&s.species!==S.BOAT&&s.customTimer<(s.uniqueData.fleeUntil??0)&&s.uniqueData.fleeFrom;if(fleeing){desired=Math.atan2(s.x-s.uniqueData.fleeFrom.x,s.z-s.uniqueData.fleeFrom.z);s.uniqueData.grazing=false;}
+ // Fish school loosely: a slow shared heading, nudged a little every few seconds.
+ if((s.species===S.COD||s.species===S.TROPICAL_FISH)&&!fleeing&&Math.hypot(s.x-(s.uniqueData.home??{x:s.x}).x,s.z-(s.uniqueData.home??{z:s.z}).z)<20){if(s.customTimer>(s.uniqueData.schoolAt??0)){s.uniqueData.schoolAt=s.customTimer+4+structureHash(Math.floor(s.x),Math.floor(s.z),11)*3;s.uniqueData.schoolHeading=(s.uniqueData.schoolHeading??desired)+(structureHash(Math.floor(s.customTimer),Math.floor(s.x),7)-0.5)*.8;}desired=(s.uniqueData.schoolHeading??desired)+Math.sin(s.customTimer*.5)*.15;}
  const home=s.uniqueData.home??={x:s.x,y:s.y,z:s.z};if(!def.hostile&&Math.hypot(s.x-home.x,s.z-home.z)>((s.species===S.VILLAGER||s.species===S.FORTRESS_KEEPER)?14:28))desired=Math.atan2(home.x-s.x,home.z-s.z);if(def.hostile&&s.customTimer<(s.uniqueData.avoidUntil??0))desired=s.uniqueData.avoidHeading;s.uniqueData.heading=desired;
- s.rotationY=turnToward(s.rotationY,desired,dt*(def.hostile?5:2.5));
+ s.rotationY=turnToward(s.rotationY,desired,dt*(def.hostile?5:fleeing?4:2.5));
  const water=isWaterBlock;
  const inWater=water(floor(s.x,s.y+.1,s.z));
- const speed=def.speed*(fleeing?1.7:1);s.vx=Math.sin(s.rotationY)*speed;s.vz=Math.cos(s.rotationY)*speed;
+ const speed=def.speed*(fleeing?2.1:def.hostile&&target&&distance<24?1.15:1);s.vx=Math.sin(s.rotationY)*speed;s.vz=Math.cos(s.rotationY)*speed;
  if(s.species===S.BOAT){s.vx=0;s.vz=0;}
  if(def.aquatic&&inWater){s.vy=water(floor(s.x,s.y+.6,s.z))?.4:-.25;if(s.species===S.SQUID&&s.y>85)s.vy=-.5;}
  else if(s.species===S.SEAGULL&&inWater)s.vy=water(floor(s.x,s.y+.3,s.z))?.5:0;
@@ -74,16 +84,23 @@ export function tickCreature(s:EntityState,delta:number,world:CreatureReader,tar
    if(s.customTimer>=(u.scanAt??0)){u.scanAt=s.customTimer+.3;for(let y=Math.floor(s.y+3);y>=Math.floor(s.y)-48;y--){const block=floor(s.x,y,s.z);if(BLOCK_DEFS[block]?.solid||water(block)){u.surfaceY=y+1;break;}}}
    const landing=s.customTimer>=u.landAt&&!fleeing;
    const targetY=(u.surfaceY??home.y)+(landing?0:5+Math.sin(s.customTimer*.6)*1.2);
-   s.vy=Math.max(-1.8,Math.min(3.5,(targetY-s.y)*1.8));
-   s.vx*=landing?.6:2.5;s.vz*=landing?.6:2.5;
+   // Land gently: slow the descent and ease off the speed as the ground nears.
+   s.vy=Math.max(landing?-1.2:-1.8,Math.min(3.5,(targetY-s.y)*1.8));
+   s.vx*=landing?.45:2.5;s.vz*=landing?.45:2.5;
    if(landing&&support){u.isFlying=false;u.flightAt=s.customTimer+8+structureHash(Math.floor(s.x),Math.floor(s.z),47)*12;s.vy=0;}
   }else{s.vx*=.35;s.vz*=.35;}
+ }
+ // Pigeons mostly walk, but a scare sends them up in a short flutter, not a full flight.
+ if(s.species===S.PIGEON){
+  const u=s.uniqueData;
+  if(fleeing&&!u.isFlying&&s.customTimer>(u.flutterAt??0)){u.isFlying=true;u.flutterUntil=s.customTimer+1+structureHash(Math.floor(s.x),Math.floor(s.z),19);s.vy=3.5;}
+  if(u.isFlying){s.vy=Math.max(s.vy,1.2);s.vx*=1.8;s.vz*=1.8;if(s.customTimer>=(u.flutterUntil??0)){u.isFlying=false;u.flutterAt=s.customTimer+4+structureHash(Math.floor(s.x),Math.floor(s.z),23)*6;}}
  }
  const solid=(x:number,y:number,z:number)=>!!BLOCK_DEFS[floor(x,y,z)]?.solid;
  const radius=def.size[0]*.4,height=def.size[1]*.85;
  const clear=(x:number,y:number,z:number)=>bodyClear(world,x,y,z,radius,height);
  if(!def.aquatic&&s.species!==S.SEAGULL&&s.customTimer>(s.uniqueData.probeAt??0)){s.uniqueData.probeAt=s.customTimer+.25;const route=steerHeading(world,s.x,s.y,s.z,desired,radius,height);s.uniqueData.blocked=route===null;if(route!==null){s.uniqueData.heading=route;if(def.hostile&&Math.abs(Math.atan2(Math.sin(route-desired),Math.cos(route-desired)))>.2){s.uniqueData.avoidHeading=route;s.uniqueData.avoidUntil=s.customTimer+.6;}}}
- if(s.uniqueData.blocked||(!def.hostile&&!fleeing&&!s.uniqueData.isFlying&&s.customTimer<(s.uniqueData.restUntil??0))){s.vx=0;s.vz=0;}
+ if(s.uniqueData.blocked||(!def.hostile&&!fleeing&&!s.uniqueData.isFlying&&s.customTimer<(s.uniqueData.restUntil??0))||(s.species===S.SLIME&&s.customTimer<(s.uniqueData.hopPauseUntil??0))){s.vx=0;s.vz=0;}
  if(def.aquatic&&!inWater){s.vx=0;s.vz=0;}
  if(s.species===S.VILLAGER||s.species===S.FORTRESS_KEEPER){const x=Math.floor(s.x+Math.sin(s.rotationY)),y=Math.floor(s.y),z=Math.floor(s.z+Math.cos(s.rotationY)),door=world.getBlock(x,y,z);if(isDoorBottom(door)&&!isDoorOpen(door)){const open=getDoorOppositeStateBlock(door);world.setBlock(x,y,z,open);world.setBlock(x,y+1,z,getDoorTopForBottom(open));s.uniqueData.door={x,y,z,closeAt:s.customTimer+3};}const d=s.uniqueData.door;if(d&&s.customTimer>d.closeAt&&Math.hypot(s.x-d.x-.5,s.z-d.z-.5)>1.5&&!targets.some(p=>Math.abs(p.x-d.x-.5)<.9&&Math.abs(p.z-d.z-.5)<.9&&Math.abs(p.y-d.y)<2)){const b=world.getBlock(d.x,d.y,d.z);if(isDoorBottom(b)&&isDoorOpen(b)){const closed=getDoorOppositeStateBlock(b);world.setBlock(d.x,d.y,d.z,closed);world.setBlock(d.x,d.y+1,d.z,getDoorTopForBottom(closed));}delete s.uniqueData.door;}}
  let nx=s.x+s.vx*dt,nz=s.z+s.vz*dt;
@@ -91,6 +108,6 @@ export function tickCreature(s:EntityState,delta:number,world:CreatureReader,tar
  if(clear(nx,s.y,nz)){if(!def.aquatic||!inWater||water(floor(nx,s.y+.1,nz))){s.x=nx;s.z=nz;}else s.rotationY+=Math.PI*.7;}
  else if(grounded&&clear(nx,Math.floor(s.y+.05)+1,nz)&&!def.aquatic){s.x=nx;s.z=nz;s.y=Math.floor(s.y+.05)+1;s.vy=0;}
  else{s.uniqueData.heading=s.rotationY+1.2;s.uniqueData.probeAt=0;s.vx=0;s.vz=0;}
- const moveY=s.vy*dt,steps=Math.max(1,Math.ceil(Math.abs(moveY)/.2));for(let i=0;i<steps;i++){const ny=s.y+moveY/steps;if(clear(s.x,ny,s.z))s.y=ny;else{s.vy=0;if(s.species===S.SLIME&&s.customTimer>(s.uniqueData.hopAt??0)){s.vy=3;s.uniqueData.hopAt=s.customTimer+1.5;}break;}}
+ const moveY=s.vy*dt,steps=Math.max(1,Math.ceil(Math.abs(moveY)/.2));for(let i=0;i<steps;i++){const ny=s.y+moveY/steps;if(clear(s.x,ny,s.z))s.y=ny;else{s.vy=0;if(s.species===S.SLIME){if(s.customTimer>(s.uniqueData.hopAt??0)&&s.customTimer>(s.uniqueData.hopPauseUntil??0)){s.vy=5.5;s.uniqueData.hopAt=s.customTimer+1.2+structureHash(Math.floor(s.x),Math.floor(s.z),5)*1.5;}else if(s.customTimer>(s.uniqueData.hopPauseUntil??0))s.uniqueData.hopPauseUntil=s.customTimer+.8+structureHash(Math.floor(s.x),Math.floor(s.z),6)*.7;}break;}}
  return {damage};
 }
