@@ -322,18 +322,6 @@ export enum EntitySpecies {
   REDWOOD_FOX = 'Redwood Fox',
   CARDINAL = 'Cardinal',
   SALMON = 'Salmon',
-  GLIMMER_FOX = 'Glimmer Fox',
-  PUFF_SPORE = 'Puff Spore',
-  PEBBLE_GOLEM = 'Pebble Golem',
-  SOLAR_SPRITE = 'Solar Sprite',
-  DUNE_CRAB = 'Dune Crab',
-  VOID_STALKER = 'Void Stalker',
-  MAGMA_SALAMANDER = 'Magma Salamander',
-  SKY_RAY = 'Sky Ray',
-  SPORE_SHROOMLING = 'Spore Shroomling',
-  ANCIENT_SENTRY = 'Ancient Sentry',
-  MIMIC_CHEST = 'Treasure Mimic',
-  CRYSTAL_BASILISK = 'Crystal Basilisk'
 }
 
 export interface EntityState {

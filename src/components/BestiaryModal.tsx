@@ -9,7 +9,7 @@ interface BestiaryModalProps {
 }
 
 export const BestiaryModal: React.FC<BestiaryModalProps> = ({ discoveredEntities, onClose }) => {
-  const [selectedSpecies, setSelectedSpecies] = useState<EntitySpecies>(EntitySpecies.GLIMMER_FOX);
+  const [selectedSpecies, setSelectedSpecies] = useState<EntitySpecies>(EntitySpecies.REDWOOD_FOX);
   const [searchQuery, setSearchQuery] = useState('');
 
   const creatures = Object.values(BESTIARY_DATA);

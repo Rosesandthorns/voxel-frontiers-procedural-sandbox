@@ -51,102 +51,6 @@ export const ENTITY_HITBOX_DEFS: Record<EntitySpecies, EntityHitboxDef> = {
     collisionRadius: 0.18,
     collisionHeight: 0.52
   },
-  [EntitySpecies.GLIMMER_FOX]: {
-    width: 0.34,
-    height: 0.48,
-    depth: 0.55,
-    yOffset: 0.04,
-    collisionRadius: 0.18,
-    collisionHeight: 0.52
-  },
-  [EntitySpecies.PUFF_SPORE]: {
-    width: 0.36,
-    height: 0.40,
-    depth: 0.36,
-    yOffset: 0.02,
-    collisionRadius: 0.18,
-    collisionHeight: 0.42
-  },
-  [EntitySpecies.PEBBLE_GOLEM]: {
-    width: 0.50,
-    height: 0.90,
-    depth: 0.42,
-    yOffset: 0.02,
-    collisionRadius: 0.25,
-    collisionHeight: 0.92
-  },
-  [EntitySpecies.SOLAR_SPRITE]: {
-    width: 0.22,
-    height: 0.28,
-    depth: 0.22,
-    yOffset: 0.04,
-    collisionRadius: 0.12,
-    collisionHeight: 0.30
-  },
-  [EntitySpecies.DUNE_CRAB]: {
-    width: 0.40,
-    height: 0.26,
-    depth: 0.35,
-    yOffset: 0.02,
-    collisionRadius: 0.20,
-    collisionHeight: 0.28
-  },
-  [EntitySpecies.VOID_STALKER]: {
-    width: 0.35,
-    height: 1.00,
-    depth: 0.35,
-    yOffset: 0.05,
-    collisionRadius: 0.18,
-    collisionHeight: 1.05
-  },
-  [EntitySpecies.MAGMA_SALAMANDER]: {
-    width: 0.35,
-    height: 0.30,
-    depth: 0.55,
-    yOffset: 0.02,
-    collisionRadius: 0.18,
-    collisionHeight: 0.34
-  },
-  [EntitySpecies.SKY_RAY]: {
-    width: 1.00,
-    height: 0.25,
-    depth: 1.10,
-    yOffset: 0.02,
-    collisionRadius: 0.35,
-    collisionHeight: 0.30
-  },
-  [EntitySpecies.SPORE_SHROOMLING]: {
-    width: 0.24,
-    height: 0.38,
-    depth: 0.24,
-    yOffset: 0.02,
-    collisionRadius: 0.12,
-    collisionHeight: 0.40
-  },
-  [EntitySpecies.ANCIENT_SENTRY]: {
-    width: 0.40,
-    height: 0.80,
-    depth: 0.40,
-    yOffset: 0.05,
-    collisionRadius: 0.22,
-    collisionHeight: 0.85
-  },
-  [EntitySpecies.MIMIC_CHEST]: {
-    width: 0.50,
-    height: 0.50,
-    depth: 0.50,
-    yOffset: 0.02,
-    collisionRadius: 0.25,
-    collisionHeight: 0.52
-  },
-  [EntitySpecies.CRYSTAL_BASILISK]: {
-    width: 0.35,
-    height: 0.35,
-    depth: 0.65,
-    yOffset: 0.02,
-    collisionRadius: 0.20,
-    collisionHeight: 0.38
-  }
 };
 
 const DEFAULT_HITBOX_DEF: EntityHitboxDef = {
@@ -441,7 +345,7 @@ export function moveEntityWithVoxelCollision(
       }
     }
   } else {
-    // Flying entities (Cardinal, Sky Ray, etc.)
+    // Flying entities (Cardinal, etc.)
     const targetY = state.y + dy;
     if (isEntityColliding(state.x, targetY, state.z, radius, height, world)) {
       state.vy = -state.vy * 0.5;
