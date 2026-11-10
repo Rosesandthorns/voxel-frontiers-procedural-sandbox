@@ -26,7 +26,7 @@ console.log('Dirty-save deduplication, async checkpoint ordering, compact mesh b
 // A replacement chunk must not inherit geometry from an older chunk with the same coordinates.
 const oldChunk=new Chunk(0,0,BiomeType.VERDANT_PLAINS),newChunk=new Chunk(0,0,BiomeType.VERDANT_PLAINS);
 let finishMesh:(value:any)=>void=()=>{};let free=true;
-const world:any=Object.assign(Object.create(VoxelWorld.prototype),{isDestroyed:false,pendingMeshKeys:new Set(['0,0']),urgentMeshKeys:new Set(),inflightMeshKeys:new Set(),completedMeshMap:new Map(),meshKeys:new Set(),currentChunkCX:0,currentChunkCZ:0,chunks:new Map([['0,0',oldChunk]]),meshPool:{hasFreeWorker:()=>free,request:()=>{free=false;return new Promise(resolve=>{finishMesh=resolve;});}}});
+const world:any=Object.assign(Object.create(VoxelWorld.prototype),{isDestroyed:false,pendingMeshKeys:new Set(['0,0']),urgentMeshKeys:new Set(),inflightMeshKeys:new Set(),completedMeshMap:new Map(),meshFailureCounts:new Map(),meshKeys:new Set(),currentChunkCX:0,currentChunkCZ:0,chunks:new Map([['0,0',oldChunk]]),meshPool:{hasFreeWorker:()=>free,request:()=>{free=false;return new Promise(resolve=>{finishMesh=resolve;});}}});
 world._pumpMeshQueue();world.chunks.set('0,0',newChunk);const emptyMesh:any={};for(const kind of ['solid','water'])for(const suffix of ['Positions','Normals','UVs','Colors','Indices'])emptyMesh[kind+suffix]=suffix==='Indices'?new Uint32Array():new Float32Array();finishMesh(emptyMesh);await new Promise(resolve=>setTimeout(resolve,0));assert.equal(world.completedMeshMap.size,0);assert.equal(world.pendingMeshKeys.has('0,0'),true);
 world.completedMeshMap.set('0,0',{chunk:oldChunk,result:{},revision:oldChunk.saveRevision,neighbors:Array.from({length:4},()=>({chunk:null,revision:-1}))});world._applyMeshResult=()=>{throw new Error('Stale mesh was uploaded');};world._drainCompletedMeshes(2);assert.equal(world.completedMeshMap.size,0);
 console.log('Stale mesh results are discarded and replacement chunks are scheduled.');
@@ -36,6 +36,15 @@ free=true;newChunk.setBlock(1,90,1,BlockType.STONE);world.pendingMeshKeys=new Se
 
 // A result that completed just before a placement/break still has to be rejected at upload time.
 let applied=0;world._applyMeshResult=()=>applied++;world.pendingMeshKeys=new Set();world.completedMeshMap=new Map();world.inflightMeshKeys=new Set();const beforeEdit=newChunk.saveRevision;world.completedMeshMap.set('0,0',{chunk:newChunk,result:emptyMesh,revision:beforeEdit,neighbors:Array.from({length:4},()=>({chunk:null,revision:-1}))});newChunk.setBlock(2,90,2,BlockType.STONE);world._drainCompletedMeshes(2);assert.equal(applied,0,'A completed pre-placement mesh cannot hide the placed block');assert.equal(world.pendingMeshKeys.has('0,0'),true);world.completedMeshMap.clear();world.pendingMeshKeys.clear();const neighbor=new Chunk(1,0,BiomeType.VERDANT_PLAINS);world.chunks.set('1,0',neighbor);world.completedMeshMap.set('0,0',{chunk:newChunk,result:emptyMesh,revision:newChunk.saveRevision,neighbors:[{chunk:null,revision:-1},{chunk:neighbor,revision:neighbor.saveRevision},{chunk:null,revision:-1},{chunk:null,revision:-1}]});neighbor.setBlock(0,90,2,BlockType.STONE);world._drainCompletedMeshes(2);assert.equal(applied,0,'A stale border mesh cannot hide a neighboring edge edit');assert.equal(world.pendingMeshKeys.has('0,0'),true);
+
+// An urgent edit remesh must upload before first-time terrain meshes, or an
+// edit can sit invisible behind the world-loading queue (break/place visual bug).
+const appliedOrder:string[]=[];world._applyMeshResult=(chunk:any)=>{appliedOrder.push(`${chunk.cx},${chunk.cz}`);};
+world.pendingMeshKeys=new Set();world.completedMeshMap=new Map();world.inflightMeshKeys=new Set();
+newChunk.mesh={} as any; // edited chunk already has a mesh on screen
+world.completedMeshMap.set('0,0',{chunk:newChunk,result:emptyMesh,revision:newChunk.saveRevision,neighbors:[{chunk:null,revision:-1},{chunk:neighbor,revision:neighbor.saveRevision},{chunk:null,revision:-1},{chunk:null,revision:-1}],urgent:true});
+world.completedMeshMap.set('1,0',{chunk:neighbor,result:emptyMesh,revision:neighbor.saveRevision,neighbors:[{chunk:newChunk,revision:newChunk.saveRevision},{chunk:null,revision:-1},{chunk:null,revision:-1},{chunk:null,revision:-1}],urgent:false});
+world._drainCompletedMeshes(1);assert.deepEqual(appliedOrder,['0,0'],'An edit remesh must upload before a first-time terrain mesh');assert.equal(world.completedMeshMap.has('1,0'),true,'The terrain mesh waits for the next frame, it is not dropped');
 
 // A stationary guest must continue scheduling missing terrain after a failed transfer.
 let rescheduled=0;

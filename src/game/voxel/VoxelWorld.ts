@@ -142,7 +142,11 @@ export class VoxelWorld {
 
   // Completed worker mesh results waiting for budgeted main-thread GPU buffer upload
 
-  private completedMeshMap: Map<string, { chunk: Chunk; result: MeshResult; revision: number; neighbors: Array<{chunk:Chunk|null;revision:number}> }> = new Map();
+  private completedMeshMap: Map<string, { chunk: Chunk; result: MeshResult; revision: number; neighbors: Array<{chunk:Chunk|null;revision:number}>; urgent: boolean }> = new Map();
+  // Consecutive mesh failures per chunk (a worker dying or a mesher error must
+  // never strand a chunk's edits forever, but a chunk that fails repeatedly
+  // stops being retried so a bad chunk cannot hot-loop the mesh queue).
+  private meshFailureCounts: Map<string, number> = new Map();
 
 
 
@@ -693,6 +697,11 @@ export class VoxelWorld {
 
       this.pendingMeshKeys.delete(bestKey);
 
+      // Remember whether this dispatch was an urgent (edit) remesh BEFORE
+      // clearing the flag: the drain must rank it the same way the pump does,
+      // or an edit's finished mesh can sit behind hundreds of first-time
+      // chunk meshes while the world is still loading.
+      const dispatchedUrgent = this.urgentMeshKeys.has(bestKey);
       this.urgentMeshKeys.delete(bestKey);
 
       dispatched++;
@@ -734,12 +743,13 @@ export class VoxelWorld {
         if (this.isDestroyed) return;
 
         this.inflightMeshKeys.delete(dispatchedKey);
+        this.meshFailureCounts.delete(dispatchedKey);
 
         const current=this.chunks.get(dispatchedKey);
 
         if (current===chunk && chunk.saveRevision===dispatchedRevision && this._meshNeighborsMatch(chunk,dispatchedNeighbors)) {
 
-          this.completedMeshMap.set(dispatchedKey, { chunk, result, revision:dispatchedRevision, neighbors:dispatchedNeighbors });
+          this.completedMeshMap.set(dispatchedKey, { chunk, result, revision:dispatchedRevision, neighbors:dispatchedNeighbors, urgent:dispatchedUrgent });
 
         } else if(current) {
 
@@ -747,6 +757,22 @@ export class VoxelWorld {
 
         }
 
+      }).catch(() => {
+        // A mesh worker died or a mesh request timed out (MeshWorkerPool now
+        // rejects instead of hanging forever). The chunk keeps its old mesh,
+        // so re-queue the edit instead of leaving it visually stale; give up
+        // after a few tries so a deterministically bad chunk cannot hot-loop.
+        if (this.isDestroyed) return;
+        this.inflightMeshKeys.delete(dispatchedKey);
+        const failures = (this.meshFailureCounts.get(dispatchedKey) ?? 0) + 1;
+        this.meshFailureCounts.set(dispatchedKey, failures);
+        const current = this.chunks.get(dispatchedKey);
+        if (current && failures <= 3) {
+          console.warn(`[VoxelWorld] mesh failed for chunk ${dispatchedKey} (attempt ${failures}); re-queueing`);
+          this.enqueueMesh(current, true);
+        } else if (current) {
+          console.warn(`[VoxelWorld] mesh failed for chunk ${dispatchedKey} 3 times; leaving its current mesh in place`);
+        }
       });
 
     }
@@ -805,7 +831,12 @@ export class VoxelWorld {
 
         const distSq = dx * dx + dz * dz;
 
-        const score = (entry.chunk.mesh === null ? -10000 : 0) + distSq;
+        // Urgent entries are edit remeshes (a block just broken or placed):
+        // they redraw before first-time terrain meshes, matching the pump's
+        // priority. Without this, an edit's finished mesh could sit behind
+        // hundreds of unmeshed chunks while the world loads, leaving the edit
+        // invisible even though the game data already changed.
+        const score = (entry.urgent ? -20000 : entry.chunk.mesh === null ? -10000 : 0) + distSq;
 
         if (score < bestScore) {
 
