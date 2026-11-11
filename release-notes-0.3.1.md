@@ -6,6 +6,6 @@ Biome 0.3.1 fixes Windows version switching and deletion, and block edits showin
 - Files temporarily held by Windows are cleaned up on a later launch. Worlds, backups and account data are not deleted.
 - Versions installed by an older launcher are recognised again: a version folder with the game files but no verification marker now lists as installed, plays, and deletes, instead of the launcher refusing to download, play, or delete it.
 - Fixed blocks not updating visually when broken or placed: broken blocks could keep looking present and placed blocks could stay invisible, even though the game data was correct (items dropped, and you could walk through where a block had been). Edit remeshes now upload first while the world is loading, and a mesh worker that dies or never answers is replaced and its chunk re-queued instead of stranded.
-- Includes the merged animal redo: better creature models, richer textures, livelier AI, streamlined fish and snake, and villagers with job outfits.
+- Animal update (merged from the animal redo): creatures rebuilt with better models, richer textures, and livelier AI. The snake is now a slim 9-segment S-curve, tropical fish are thin Minecraft-style discs, and villagers wear job outfits (farmer, blacksmith, librarian, cleric, trader, guard). Twelve unused mobs were removed. The Redwood Fox and salmon are unchanged.
 
 Update through Versions → Check for updates → download 0.3.1 → Play this version. This patch retains the Bigger Than Ever gameplay content.
